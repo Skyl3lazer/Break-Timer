@@ -16,7 +16,7 @@ namespace BreakTimer
 	public static class BreakIndicator
 	{
 		public const float IconSize = 22f;
-		public const float RightPadding = 4f;
+		public const float SidePadding = 4f;
 
 		static readonly Color IdleColor = Color.white;
 		static readonly Color BreakColor = new(0.95f, 0.20f, 0.20f);
@@ -26,7 +26,7 @@ namespace BreakTimer
 			if (pawn is null || BreakTextures.LightningBolt == null) return;
 
 			Rect iconRect = new(
-				needRect.xMax - IconSize - RightPadding,
+				needRect.x + SidePadding,
 				needRect.y + (needRect.height - IconSize) * 0.5f,
 				IconSize,
 				IconSize);
@@ -75,6 +75,15 @@ namespace BreakTimer
 				long minEnd = ToAbsTick(nowTick + remaining.MinTicks);
 				long maxEnd = ToAbsTick(nowTick + remaining.MaxTicks);
 
+				int minHours = TicksToHoursCeil(remaining.MinTicks);
+				int maxHours = TicksToHoursCeil(remaining.MaxTicks);
+				if (info.Duration.HasUnboundedMax)
+					sb.Append("Remaining: ").Append(minHours).AppendLine("h+");
+				else if (minHours == maxHours)
+					sb.Append("Remaining: ").Append(minHours).AppendLine("h");
+				else
+					sb.Append("Remaining: ").Append(minHours).Append("h - ").Append(maxHours).AppendLine("h");
+
 				if (info.Duration.HasUnboundedMax)
 				{
 					sb.Append("Ends after: ")
@@ -122,6 +131,12 @@ namespace BreakTimer
 		{
 			long offset = GenTicks.TicksAbs - Find.TickManager.TicksGame;
 			return offset + gameTick;
+		}
+
+		static int TicksToHoursCeil(int ticks)
+		{
+			if (ticks <= 0) return 0;
+			return Mathf.CeilToInt(ticks / (float)GenDate.TicksPerHour);
 		}
 
 		static Vector2 LongLatFor(Pawn pawn)
