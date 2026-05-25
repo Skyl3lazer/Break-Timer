@@ -130,22 +130,31 @@ namespace BreakTimer
 			return sb.ToString().TrimEnd();
 		}
 
-		static readonly MentalBreakIntensity[] IntensityOrder =
-		{
-			MentalBreakIntensity.Minor,
-			MentalBreakIntensity.Major,
-			MentalBreakIntensity.Extreme,
-		};
-
 		/// <summary>
-		/// Builds the tooltip shown when the pawn is not in a mental break: a per-intensity
-		/// breakdown of which breaks could fire, with each break's selection chance
-		/// computed the same way RimWorld picks them — by normalised
-		/// <c>Worker.CommonalityFor(pawn, moodCaused: true)</c> within its intensity tier.
+		/// Builds the tooltip shown when the pawn is not in a mental break. We restrict
+		/// the list to the single intensity tier that <em>the pawn's current mood</em>
+		/// makes them eligible for — mirroring the game's selector, which only ever rolls
+		/// breaks at the highest tier currently below threshold — and we filter to breaks
+		/// the worker reports as actually able to fire for this pawn. Each break's
+		/// percentage is its <c>Worker.CommonalityFor(pawn, moodCaused: true)</c>
+		/// normalised within the chosen tier, matching <c>MentalBreaker</c>'s own math.
 		/// </summary>
 		static string BuildPossibleBreaksTooltip(Pawn pawn)
 		{
-			var groups = new Dictionary<MentalBreakIntensity, List<(BreakInfo info, float weight)>>();
+			MentalBreaker? breaker = pawn.mindState?.mentalBreaker;
+			if (breaker == null)
+				return "Possible mental breaks:\n  (none — no mental breaker on this pawn)";
+
+			if (breaker.Blocked)
+				return "Possible mental breaks:\n  (none — mental breaks are currently blocked)";
+			if (!breaker.CanDoRandomMentalBreaks)
+				return "Possible mental breaks:\n  (none — this pawn cannot have random mental breaks)";
+
+			MentalBreakIntensity? eligible = HighestEligibleIntensity(breaker);
+			if (eligible is null)
+				return "Possible mental breaks:\n  (none — mood is above all break thresholds)";
+
+			var entries = new List<(BreakInfo info, float weight)>(8);
 
 			HashSet<MentalBreakDef>? ideoAllow = null;
 			try { ideoAllow = pawn.Ideo?.cachedPossibleMentalBreaks; }
@@ -158,11 +167,10 @@ namespace BreakTimer
 			bool useIdeoFilter = ideoAllow != null && ideoAllow.Count > 0;
 			bool anomalyActive = ModsConfig.AnomalyActive;
 
-			foreach (BreakInfo info in MentalBreakCatalog.All)
+			foreach (BreakInfo info in MentalBreakCatalog.OfIntensity(eligible.Value))
 			{
 				try
 				{
-					if (info.Intensity == MentalBreakIntensity.None) continue;
 					if (info.Requirements.AnomalousBreak && !anomalyActive) continue;
 					if (useIdeoFilter && !ideoAllow!.Contains(info.Def)) continue;
 					if (!info.CanOccurFor(pawn)) continue;
@@ -170,9 +178,7 @@ namespace BreakTimer
 					float weight = info.CommonalityFor(pawn, moodCaused: true);
 					if (weight <= 0f || float.IsNaN(weight) || float.IsInfinity(weight)) continue;
 
-					if (!groups.TryGetValue(info.Intensity, out var bucket))
-						groups[info.Intensity] = bucket = new List<(BreakInfo, float)>(8);
-					bucket.Add((info, weight));
+					entries.Add((info, weight));
 				}
 				catch (Exception ex)
 				{
@@ -182,34 +188,36 @@ namespace BreakTimer
 				}
 			}
 
-			if (groups.Count == 0)
-				return "No mental breaks currently possible for this pawn.";
+			if (entries.Count == 0)
+				return $"Possible mental breaks ({eligible.Value}):\n  (none currently eligible)";
 
+			float total = entries.Sum(e => e.weight);
 			var sb = new StringBuilder();
-			sb.AppendLine("Possible mental breaks:");
-
-			bool firstSection = true;
-			foreach (MentalBreakIntensity intensity in IntensityOrder)
+			sb.Append("Possible mental breaks (").Append(eligible.Value).AppendLine("):");
+			foreach (var (info, weight) in entries.OrderByDescending(e => e.weight))
 			{
-				if (!groups.TryGetValue(intensity, out var list) || list.Count == 0) continue;
-				float total = list.Sum(e => e.weight);
-				if (total <= 0f) continue;
-
-				if (!firstSection) sb.AppendLine();
-				firstSection = false;
-
-				sb.Append(intensity.ToString()).AppendLine(":");
-				foreach (var (info, weight) in list.OrderByDescending(e => e.weight))
-				{
-					float pct = weight / total;
-					string label = info.LabelCap;
-					if (info.Requirements.AnomalousBreak)
-						label += " (anomaly)";
-					sb.Append("  ").Append(label).Append(" - ").AppendLine(pct.ToStringPercent("0"));
-				}
+				float pct = total > 0f ? weight / total : 0f;
+				string label = info.LabelCap;
+				if (info.Requirements.AnomalousBreak) label += " (anomaly)";
+				sb.Append("  ").Append(label).Append(" - ").AppendLine(pct.ToStringPercent("0"));
 			}
 
 			return sb.ToString().TrimEnd();
+		}
+
+		/// <summary>
+		/// Returns the highest <see cref="MentalBreakIntensity"/> the pawn currently
+		/// qualifies for purely off <c>CurMood</c> vs the per-tier thresholds. Mirrors
+		/// <c>MentalBreaker.CurrentDesiredMoodBreakIntensity</c>'s tiering, minus the
+		/// 2000-tick dwell requirement (which is too coarse for a snapshot tooltip).
+		/// </summary>
+		static MentalBreakIntensity? HighestEligibleIntensity(MentalBreaker breaker)
+		{
+			float mood = breaker.CurMood;
+			if (mood < breaker.BreakThresholdExtreme) return MentalBreakIntensity.Extreme;
+			if (mood < breaker.BreakThresholdMajor) return MentalBreakIntensity.Major;
+			if (mood < breaker.BreakThresholdMinor) return MentalBreakIntensity.Minor;
+			return null;
 		}
 
 		static string ExtractDescription(MentalState state, Pawn pawn)
