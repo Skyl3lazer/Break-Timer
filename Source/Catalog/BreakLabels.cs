@@ -1,46 +1,26 @@
-using System;
 using System.Collections.Generic;
-using System.Linq;
 using RimWorld;
 using Verse;
 
 namespace BreakTimer
 {
 	/// <summary>
-	/// Process-wide label cache for everything the tooltip needs to render. Backs the
-	/// "Possible mental breaks" section, the active-break header, and the friendly-name
-	/// lookups that don't live on <see cref="BreakInfo"/>. Every value cached here is keyed
-	/// on a <see cref="Def"/> (plus, for traits, the immutable degree value), so entries
-	/// are valid for the whole session — defs never get re-loaded after game startup.
+	/// Process-wide cache of <em>raw</em> friendly labels — the value before any
+	/// contextual disambiguation pass runs. Tooltip code reads these as the starting
+	/// point and then asks <see cref="LabelDisambiguator"/> to add parenthesised
+	/// suffixes only where the visible set actually contains duplicates.
 	/// </summary>
 	/// <remarks>
-	/// <para>
-	/// State and break labels are eagerly pre-filled on first access via
-	/// <see cref="DefDatabase{T}.AllDefsListForReading"/>. The pre-fill step runs the
-	/// <see cref="LabelDisambiguator"/> over every group of defs that resolve to the same
-	/// friendly label, so e.g. the two vanilla <c>MentalBreakDef</c>s that both inherit
-	/// the label <c>"insulting spree"</c> end up as <c>"Insulting spree"</c> and
-	/// <c>"Insulting spree (Targeted)"</c>.
-	/// </para>
-	/// <para>
 	/// Read-only access from the UI thread, so a plain <see cref="Dictionary{TKey,TValue}"/>
-	/// is sufficient. Tooltip rendering does up to a couple of dozen lookups per hover
-	/// frame; pre-caching these saves the per-call <c>LabelCap.RawText</c> resolution and
-	/// the per-call <see cref="GenText.CapitalizeFirst(string)"/> allocation.
-	/// </para>
+	/// is sufficient. Caching saves the per-call <c>LabelCap.RawText</c> resolution and
+	/// the per-call <see cref="GenText.CapitalizeFirst(string)"/> allocation across all
+	/// the lookups a single tooltip hover does.
 	/// </remarks>
 	public static class BreakLabels
 	{
-		static readonly object syncRoot = new();
-
-		static bool stateMapReady;
-		static readonly Dictionary<MentalStateDef, string> stateLabel = new();
 		static readonly Dictionary<MentalStateDef, string> stateLabelCap = new();
-
-		static bool breakMapReady;
 		static readonly Dictionary<MentalBreakDef, string> breakLabel = new();
 		static readonly Dictionary<MentalBreakDef, string> breakLabelCap = new();
-
 		static readonly Dictionary<MentalFitDef, string> fitLabelCap = new();
 		static readonly Dictionary<TraitKey, string> traitLabelCap = new();
 		static readonly Dictionary<TraitKey, string> traitSourceText = new();
@@ -48,24 +28,36 @@ namespace BreakTimer
 		public static string ForBreak(MentalBreakDef? def)
 		{
 			if (def is null) return string.Empty;
-			EnsureBreakMap();
-			return breakLabel.TryGetValue(def, out string cached) ? cached : def.defName;
+			if (breakLabel.TryGetValue(def, out string cached)) return cached;
+
+			string raw = ResolveBreakRawLabel(def);
+			breakLabel[def] = raw;
+			return raw;
 		}
 
 		public static string ForBreakCap(MentalBreakDef? def)
 		{
 			if (def is null) return string.Empty;
-			EnsureBreakMap();
-			return breakLabelCap.TryGetValue(def, out string cached) ? cached : def.defName;
+			if (breakLabelCap.TryGetValue(def, out string cached)) return cached;
+
+			string capped = ForBreak(def).CapitalizeFirst();
+			breakLabelCap[def] = capped;
+			return capped;
 		}
 
 		public static string ForState(MentalStateDef? state)
 		{
 			if (state is null) return string.Empty;
-			EnsureStateMap();
-			return stateLabelCap.TryGetValue(state, out string cached)
-				? cached
-				: (state.LabelCap.RawText ?? state.defName);
+			if (stateLabelCap.TryGetValue(state, out string cached)) return cached;
+
+			string raw = state.LabelCap.RawText;
+			string resolved =
+				!raw.NullOrEmpty() ? raw
+				: !state.label.NullOrEmpty() ? state.label.CapitalizeFirst()
+				: state.defName;
+
+			stateLabelCap[state] = resolved;
+			return resolved;
 		}
 
 		public static string ForFit(MentalFitDef? fit)
@@ -110,80 +102,12 @@ namespace BreakTimer
 			return built;
 		}
 
-		static void EnsureStateMap()
-		{
-			if (stateMapReady) return;
-			lock (syncRoot)
-			{
-				if (stateMapReady) return;
-				BuildMap(
-					DefDatabase<MentalStateDef>.AllDefsListForReading,
-					stateLabel,
-					stateLabelCap,
-					ResolveStateRawLabel);
-				stateMapReady = true;
-			}
-		}
-
-		static void EnsureBreakMap()
-		{
-			if (breakMapReady) return;
-			lock (syncRoot)
-			{
-				if (breakMapReady) return;
-				BuildMap(
-					DefDatabase<MentalBreakDef>.AllDefsListForReading,
-					breakLabel,
-					breakLabelCap,
-					ResolveBreakRawLabel);
-				breakMapReady = true;
-			}
-		}
-
-		static void BuildMap<T>(
-			IList<T> defs,
-			Dictionary<T, string> labelOut,
-			Dictionary<T, string> labelCapOut,
-			Func<T, string> rawLabelOf) where T : Def
-		{
-			var raw = new Dictionary<T, string>(defs.Count);
-			foreach (T def in defs)
-			{
-				if (def is null) continue;
-				raw[def] = rawLabelOf(def);
-			}
-
-			foreach (var group in raw.GroupBy(kv => kv.Value, StringComparer.OrdinalIgnoreCase))
-			{
-				var members = group.ToList();
-				if (members.Count == 1)
-				{
-					labelOut[members[0].Key] = group.Key;
-					continue;
-				}
-
-				var keys = members.Select(kv => kv.Key).ToList();
-				var defNames = keys.Select(d => d.defName).ToList();
-				var disambiguated = LabelDisambiguator.Disambiguate(group.Key, defNames);
-				for (int i = 0; i < keys.Count; i++)
-					labelOut[keys[i]] = disambiguated[i];
-			}
-
-			foreach (var kv in labelOut)
-				labelCapOut[kv.Key] = kv.Value.CapitalizeFirst();
-		}
-
 		static string ResolveBreakRawLabel(MentalBreakDef def)
 		{
 			if (!def.label.NullOrEmpty()) return def.label;
 			if (def.mentalState != null && !def.mentalState.label.NullOrEmpty())
 				return def.mentalState.label;
 			return def.defName;
-		}
-
-		static string ResolveStateRawLabel(MentalStateDef def)
-		{
-			return def.label.NullOrEmpty() ? def.defName : def.label;
 		}
 
 		readonly struct TraitKey : System.IEquatable<TraitKey>

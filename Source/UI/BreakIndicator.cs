@@ -149,13 +149,40 @@ namespace BreakTimer
 		/// <see cref="TraitMentalStateGiver"/> entries and baby <see cref="MentalFitDef"/>
 		/// fits), each annotated with its source and MTB.
 		/// </summary>
+		/// <remarks>
+		/// Runs in three passes so disambiguation can be scoped to the visible content:
+		/// (1) gather raw mood-tier and other-trigger entries, (2) ask
+		/// <see cref="LabelDisambiguator"/> for unique display labels across the union of
+		/// both sections, (3) render. This means a defName collision only produces a
+		/// parenthesised tag when both colliding items are actually shown.
+		/// </remarks>
 		static string BuildPossibleBreaksTooltip(Pawn pawn)
 		{
-			string moodSection = BuildMoodTierSection(pawn);
-			string otherSection = BuildOtherTriggersSection(pawn);
+			MoodTier mood = CollectMoodTier(pawn);
+			var others = new List<ExtraTrigger>(4);
+			CollectTraitTriggers(pawn, others);
+			CollectMentalFitTriggers(pawn, others);
+			others.Sort((a, b) => a.MtbDays.CompareTo(b.MtbDays));
+
+			int moodCount = mood.Entries?.Count ?? 0;
+			int otherCount = others.Count;
+
+			var pool = new List<(string label, string defName)>(moodCount + otherCount);
+			if (mood.Entries != null)
+			{
+				foreach (var (info, _) in mood.Entries)
+					pool.Add((info.LabelCap, info.DefName));
+			}
+			foreach (ExtraTrigger e in others)
+				pool.Add((e.Label, e.DefName));
+
+			List<string> labels = LabelDisambiguator.Resolve(pool);
+
+			string moodSection = RenderMoodTier(mood, labels, 0);
+			string otherSection = RenderOtherTriggers(others, labels, moodCount);
 
 			if (moodSection.Length == 0 && otherSection.Length == 0)
-				return "Possible mental breaks:\n  (none — mood is above all break thresholds)";
+				return "Possible mental breaks:\n No possible breaks!";
 
 			if (moodSection.Length > 0 && otherSection.Length > 0)
 				return moodSection + "\n\n" + otherSection;
@@ -163,15 +190,33 @@ namespace BreakTimer
 			return moodSection.Length > 0 ? moodSection : otherSection;
 		}
 
-		static string BuildMoodTierSection(Pawn pawn)
+		readonly struct MoodTier
+		{
+			public MoodTier(MentalBreakIntensity? intensity, List<(BreakInfo info, float weight)>? entries, string? message)
+			{
+				Intensity = intensity;
+				Entries = entries;
+				Message = message;
+			}
+
+			public MentalBreakIntensity? Intensity { get; }
+			public List<(BreakInfo info, float weight)>? Entries { get; }
+			/// <summary>Optional pre-rendered message that replaces the entries list (e.g. "blocked").</summary>
+			public string? Message { get; }
+
+			public static MoodTier Hidden => new(null, null, null);
+			public static MoodTier WithMessage(string msg) => new(null, null, msg);
+		}
+
+		static MoodTier CollectMoodTier(Pawn pawn)
 		{
 			MentalBreaker? breaker = pawn.mindState?.mentalBreaker;
-			if (breaker == null) return string.Empty;
-			if (breaker.Blocked) return "Possible mental breaks:\n  (none — mental breaks are currently blocked)";
-			if (!breaker.CanDoRandomMentalBreaks) return string.Empty;
+			if (breaker == null) return MoodTier.Hidden;
+			if (breaker.Blocked) return MoodTier.WithMessage("Possible mental breaks:\n Breaks are currently blocked!");
+			if (!breaker.CanDoRandomMentalBreaks) return MoodTier.Hidden;
 
 			MentalBreakIntensity? eligible = HighestEligibleIntensity(breaker);
-			if (eligible is null) return string.Empty;
+			if (eligible is null) return MoodTier.Hidden;
 
 			var entries = new List<(BreakInfo info, float weight)>(8);
 
@@ -207,18 +252,32 @@ namespace BreakTimer
 				}
 			}
 
-			if (entries.Count == 0)
-				return $"Possible mental breaks ({eligible.Value}):\n  (none currently eligible)";
+			return new MoodTier(eligible, entries, null);
+		}
 
-			float total = entries.Sum(e => e.weight);
+		static string RenderMoodTier(MoodTier tier, IReadOnlyList<string> labels, int labelOffset)
+		{
+			if (tier.Message != null) return tier.Message;
+			if (tier.Entries == null || tier.Intensity is null) return string.Empty;
+
+			if (tier.Entries.Count == 0)
+				return $"Possible mental breaks ({tier.Intensity.Value}):\n No currently eligible breaks!";
+
+			float total = 0f;
+			foreach (var e in tier.Entries) total += e.weight;
+
+			var ordered = tier.Entries
+				.Select((entry, idx) => (entry.info, entry.weight, idx))
+				.OrderByDescending(t => t.weight);
+
 			var sb = new StringBuilder();
-			sb.Append("Possible mental breaks (").Append(eligible.Value).AppendLine("):");
-			foreach (var (info, weight) in entries.OrderByDescending(e => e.weight))
+			sb.Append("Possible mental breaks (").Append(tier.Intensity.Value).AppendLine("):");
+			foreach (var (info, weight, idx) in ordered)
 			{
 				float pct = total > 0f ? weight / total : 0f;
-				string label = info.LabelCap;
+				string label = labels[labelOffset + idx];
 				if (info.Requirements.AnomalousBreak) label += " (anomaly)";
-				sb.Append("  ").Append(label).Append(" - ").AppendLine(pct.ToStringPercent("0"));
+				sb.Append(" ").Append(label).Append(" - ").AppendLine(pct.ToStringPercent("0"));
 			}
 
 			return sb.ToString().TrimEnd();
@@ -226,33 +285,31 @@ namespace BreakTimer
 
 		readonly struct ExtraTrigger
 		{
-			public ExtraTrigger(string label, string source, float mtbDays)
+			public ExtraTrigger(string label, string defName, string source, float mtbDays)
 			{
 				Label = label;
+				DefName = defName;
 				Source = source;
 				MtbDays = mtbDays;
 			}
 
 			public string Label { get; }
+			public string DefName { get; }
 			public string Source { get; }
 			public float MtbDays { get; }
 		}
 
-		static string BuildOtherTriggersSection(Pawn pawn)
+		static string RenderOtherTriggers(List<ExtraTrigger> extras, IReadOnlyList<string> labels, int labelOffset)
 		{
-			var extras = new List<ExtraTrigger>(4);
-			CollectTraitTriggers(pawn, extras);
-			CollectMentalFitTriggers(pawn, extras);
-			if (extras.Count == 0) return string.Empty;
-
-			extras.Sort((a, b) => a.MtbDays.CompareTo(b.MtbDays));
+			if (extras == null || extras.Count == 0) return string.Empty;
 
 			var sb = new StringBuilder();
 			sb.AppendLine("Other potential states:");
-			foreach (ExtraTrigger e in extras)
+			for (int i = 0; i < extras.Count; i++)
 			{
-				sb.Append("  ")
-					.Append(e.Label)
+				ExtraTrigger e = extras[i];
+				sb.Append(" ")
+					.Append(labels[labelOffset + i])
 					.Append(" (")
 					.Append(e.Source)
 					.Append(") - every ~")
@@ -282,6 +339,7 @@ namespace BreakTimer
 						if (state.Worker == null || state.Worker.StateCanOccur(pawn))
 							sink.Add(new ExtraTrigger(
 								BreakLabels.ForState(state),
+								state.defName,
 								sourceTag,
 								data.forcedMentalStateMtbDays));
 					}
@@ -296,6 +354,7 @@ namespace BreakTimer
 						{
 							sink.Add(new ExtraTrigger(
 								BreakLabels.ForState(state),
+								state.defName,
 								sourceTag,
 								mtb));
 						}
@@ -328,7 +387,8 @@ namespace BreakTimer
 					if (state?.Worker != null && !state.Worker.StateCanOccur(pawn)) continue;
 
 					string label = state != null ? BreakLabels.ForState(state) : BreakLabels.ForFit(fit);
-					sink.Add(new ExtraTrigger(label, stage, mtb));
+					string defName = state != null ? state.defName : fit.defName;
+					sink.Add(new ExtraTrigger(label, defName, stage, mtb));
 				}
 				catch (Exception ex)
 				{

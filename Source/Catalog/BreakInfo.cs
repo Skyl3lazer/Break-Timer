@@ -53,9 +53,10 @@ namespace BreakTimer
 		/// Friendly, lowercase label. Resolved once at catalog-build time via
 		/// <see cref="BreakLabels.ForBreak"/>, which falls back from
 		/// <see cref="MentalBreakDef.label"/> to <see cref="MentalStateDef.label"/> and
-		/// finally to the def name, then disambiguates any defs that share a label (e.g.
-		/// the two vanilla "insulting spree" breaks become "insulting spree" and
-		/// "insulting spree (Targeted)"). Use <see cref="LabelCap"/> for UI display.
+		/// finally to the def name. Note this is the <em>raw</em> label — collision
+		/// disambiguation is applied contextually by <see cref="LabelDisambiguator"/> at
+		/// render time, only against the items currently visible in a given tooltip.
+		/// Use <see cref="LabelCap"/> for UI display.
 		/// </summary>
 		public string Label { get; }
 
