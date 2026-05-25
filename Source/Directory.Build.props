@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project>
+  <PropertyGroup>
+    <Authors>Derek</Authors>
+    <RootNamespace>BreakTimer</RootNamespace>
+    <AssemblyName>BreakTimer</AssemblyName>
+    <OutDir>..\1.6\Assemblies</OutDir>
+    <BaseIntermediateOutputPath>obj\$(MSBuildProjectName)\</BaseIntermediateOutputPath>
+    <ErrorReport>prompt</ErrorReport>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
+    <AnalysisLevel>preview-recommended</AnalysisLevel>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+    <DefineConstants Condition=" '$(Configuration)' == 'Debug' ">DEBUG</DefineConstants>
+    <LangVersion>latestMajor</LangVersion>
+    <Nullable>enable</Nullable>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <TargetType>library</TargetType>
+    <DebugType>none</DebugType>
+    <Optimize Condition=" '$(Configuration)' != 'Debug' ">true</Optimize>
+    <Optimize Condition=" '$(Configuration)' == 'Debug' ">false</Optimize>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+</Project>
