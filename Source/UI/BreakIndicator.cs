@@ -20,6 +20,12 @@ namespace BreakTimer
 		public const float IconSize = 22f;
 		public const float SidePadding = 4f;
 
+		// Mirrors Need.DrawOnGUI's internal layout: bar sits in the lower half of the
+		// rect, leaving the top half for the "Mood" label, with `num2 = 14f` bottom
+		// padding inside the bar area.
+		const float NeedLabelHeightFraction = 0.5f;
+		const float NeedBottomMargin = 14f;
+
 		static readonly Color IdleColor = Color.white;
 		static readonly Color BreakColor = new(0.95f, 0.20f, 0.20f);
 
@@ -27,9 +33,13 @@ namespace BreakTimer
 		{
 			if (pawn is null || BreakTextures.LightningBolt == null) return;
 
+			float barAreaY = needRect.y + needRect.height * NeedLabelHeightFraction;
+			float barAreaHeight = needRect.height * (1f - NeedLabelHeightFraction) - NeedBottomMargin;
+			if (barAreaHeight < IconSize) barAreaHeight = IconSize;
+
 			Rect iconRect = new(
 				needRect.x + SidePadding,
-				needRect.y + (needRect.height - IconSize) * 0.5f,
+				barAreaY + (barAreaHeight - IconSize) * 0.5f,
 				IconSize,
 				IconSize);
 

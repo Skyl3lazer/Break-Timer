@@ -31,15 +31,8 @@ namespace BreakTimer
 			IsAggro = MentalState?.IsAggro ?? false;
 			IsExtreme = Intensity == MentalBreakIntensity.Extreme;
 
-			Label = ResolveLabel(def, MentalState);
-			LabelCap = Label.CapitalizeFirst();
-		}
-
-		static string ResolveLabel(MentalBreakDef def, MentalStateDef? state)
-		{
-			if (!def.label.NullOrEmpty()) return def.label;
-			if (state != null && !state.label.NullOrEmpty()) return state.label;
-			return def.defName;
+			Label = BreakLabels.ForBreak(def);
+			LabelCap = BreakLabels.ForBreakCap(def);
 		}
 
 		public MentalBreakDef Def { get; }
@@ -57,11 +50,12 @@ namespace BreakTimer
 		public string DefName => Def.defName;
 
 		/// <summary>
-		/// Friendly, lowercase label. Resolved once at catalog-build time. Most vanilla
-		/// <see cref="MentalBreakDef"/>s (Berserk, FireStartingSpree, ...) ship without a
-		/// <c>label</c>, so resolution falls back to <see cref="MentalStateDef.label"/>
-		/// before finally surrendering to the def name. Use <see cref="LabelCap"/> for
-		/// UI display.
+		/// Friendly, lowercase label. Resolved once at catalog-build time via
+		/// <see cref="BreakLabels.ForBreak"/>, which falls back from
+		/// <see cref="MentalBreakDef.label"/> to <see cref="MentalStateDef.label"/> and
+		/// finally to the def name, then disambiguates any defs that share a label (e.g.
+		/// the two vanilla "insulting spree" breaks become "insulting spree" and
+		/// "insulting spree (Targeted)"). Use <see cref="LabelCap"/> for UI display.
 		/// </summary>
 		public string Label { get; }
 
