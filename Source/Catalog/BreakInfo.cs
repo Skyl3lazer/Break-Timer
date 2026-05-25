@@ -30,6 +30,16 @@ namespace BreakTimer
 			Category = MentalState?.category ?? MentalStateCategory.Undefined;
 			IsAggro = MentalState?.IsAggro ?? false;
 			IsExtreme = Intensity == MentalBreakIntensity.Extreme;
+
+			Label = ResolveLabel(def, MentalState);
+			LabelCap = Label.CapitalizeFirst();
+		}
+
+		static string ResolveLabel(MentalBreakDef def, MentalStateDef? state)
+		{
+			if (!def.label.NullOrEmpty()) return def.label;
+			if (state != null && !state.label.NullOrEmpty()) return state.label;
+			return def.defName;
 		}
 
 		public MentalBreakDef Def { get; }
@@ -47,22 +57,15 @@ namespace BreakTimer
 		public string DefName => Def.defName;
 
 		/// <summary>
-		/// Friendly, lowercase label. Most vanilla <see cref="MentalBreakDef"/>s
-		/// (Berserk, FireStartingSpree, ...) ship without a <c>label</c>, so we fall
-		/// back to the underlying <see cref="MentalStateDef.label"/> before finally
-		/// surrendering to the def name. Use <see cref="LabelCap"/> for UI display.
+		/// Friendly, lowercase label. Resolved once at catalog-build time. Most vanilla
+		/// <see cref="MentalBreakDef"/>s (Berserk, FireStartingSpree, ...) ship without a
+		/// <c>label</c>, so resolution falls back to <see cref="MentalStateDef.label"/>
+		/// before finally surrendering to the def name. Use <see cref="LabelCap"/> for
+		/// UI display.
 		/// </summary>
-		public string Label
-		{
-			get
-			{
-				if (!Def.label.NullOrEmpty()) return Def.label;
-				if (MentalState != null && !MentalState.label.NullOrEmpty()) return MentalState.label;
-				return Def.defName;
-			}
-		}
+		public string Label { get; }
 
-		public string LabelCap => Label.CapitalizeFirst();
+		public string LabelCap { get; }
 
 		/// <summary>
 		/// Convenience: the actual worker instance the game uses for this break. Wraps the

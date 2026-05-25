@@ -75,7 +75,7 @@ namespace BreakTimer
 		{
 			var sb = new StringBuilder();
 
-			sb.Append("Break: ").AppendLine(state.def.LabelCap.RawText ?? state.def.defName);
+			sb.Append("Break: ").AppendLine(BreakLabels.ForState(state.def));
 
 			ActiveBreakRecord? rec = BreakTimerGameComponent.Instance?.GetActive(pawn);
 			int nowTick = Find.TickManager.TicksGame;
@@ -264,13 +264,15 @@ namespace BreakTimer
 					TraitDegreeData data = trait.CurrentData;
 					if (data == null) continue;
 
+					string sourceTag = BreakLabels.TraitSourceTag(trait);
+
 					if (data.forcedMentalState != null && data.forcedMentalStateMtbDays > 0f)
 					{
 						MentalStateDef state = data.forcedMentalState;
 						if (state.Worker == null || state.Worker.StateCanOccur(pawn))
 							sink.Add(new ExtraTrigger(
-								StateLabel(state),
-								"trait: " + (trait.LabelCap ?? trait.def.defName),
+								BreakLabels.ForState(state),
+								sourceTag,
 								data.forcedMentalStateMtbDays));
 					}
 
@@ -283,8 +285,8 @@ namespace BreakTimer
 							&& (state.Worker == null || state.Worker.StateCanOccur(pawn)))
 						{
 							sink.Add(new ExtraTrigger(
-								StateLabel(state),
-								"trait: " + (trait.LabelCap ?? trait.def.defName),
+								BreakLabels.ForState(state),
+								sourceTag,
 								mtb));
 						}
 					}
@@ -315,7 +317,7 @@ namespace BreakTimer
 					MentalStateDef? state = fit.mentalState;
 					if (state?.Worker != null && !state.Worker.StateCanOccur(pawn)) continue;
 
-					string label = state != null ? StateLabel(state) : (fit.LabelCap.RawText ?? fit.defName);
+					string label = state != null ? BreakLabels.ForState(state) : BreakLabels.ForFit(fit);
 					sink.Add(new ExtraTrigger(label, stage, mtb));
 				}
 				catch (Exception ex)
@@ -325,13 +327,6 @@ namespace BreakTimer
 						unchecked((int)0xB12D7300 ^ (fit?.defName?.GetHashCode() ?? 0)));
 				}
 			}
-		}
-
-		static string StateLabel(MentalStateDef state)
-		{
-			string? raw = state.LabelCap.RawText;
-			if (!raw.NullOrEmpty()) return raw!;
-			return state.label.NullOrEmpty() ? state.defName : state.label.CapitalizeFirst();
 		}
 
 		static string FormatMtb(float mtbDays)
