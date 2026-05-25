@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using RimWorld;
 using RimWorld.Planet;
@@ -51,11 +53,26 @@ namespace BreakTimer
 
 		static string BuildTooltip(Pawn? pawn)
 		{
-			if (pawn is null) return "Not Yet Implemented";
-			MentalState? state = pawn.MentalState;
-			if (state?.def is null)
-				return "Not Yet Implemented";
+			if (pawn is null) return "(no pawn selected)";
 
+			try
+			{
+				MentalState? state = pawn.MentalState;
+				return state?.def is null
+					? BuildPossibleBreaksTooltip(pawn)
+					: BuildActiveBreakTooltip(pawn, state);
+			}
+			catch (Exception ex)
+			{
+				Log.ErrorOnce(
+					$"[BreakTimer] Tooltip build failed for {pawn.LabelShort}: {ex}",
+					unchecked((int)0xB12D7001));
+				return "Break Timer: error building tooltip (see log).";
+			}
+		}
+
+		static string BuildActiveBreakTooltip(Pawn pawn, MentalState state)
+		{
 			var sb = new StringBuilder();
 
 			sb.Append("Break: ").AppendLine(state.def.LabelCap.RawText ?? state.def.defName);
@@ -108,6 +125,88 @@ namespace BreakTimer
 			{
 				sb.AppendLine();
 				sb.Append(description);
+			}
+
+			return sb.ToString().TrimEnd();
+		}
+
+		static readonly MentalBreakIntensity[] IntensityOrder =
+		{
+			MentalBreakIntensity.Minor,
+			MentalBreakIntensity.Major,
+			MentalBreakIntensity.Extreme,
+		};
+
+		/// <summary>
+		/// Builds the tooltip shown when the pawn is not in a mental break: a per-intensity
+		/// breakdown of which breaks could fire, with each break's selection chance
+		/// computed the same way RimWorld picks them — by normalised
+		/// <c>Worker.CommonalityFor(pawn, moodCaused: true)</c> within its intensity tier.
+		/// </summary>
+		static string BuildPossibleBreaksTooltip(Pawn pawn)
+		{
+			var groups = new Dictionary<MentalBreakIntensity, List<(BreakInfo info, float weight)>>();
+
+			HashSet<MentalBreakDef>? ideoAllow = null;
+			try { ideoAllow = pawn.Ideo?.cachedPossibleMentalBreaks; }
+			catch (Exception ex)
+			{
+				Log.WarningOnce(
+					$"[BreakTimer] Ideo.cachedPossibleMentalBreaks threw: {ex.Message}",
+					unchecked((int)0xB12D7002));
+			}
+			bool useIdeoFilter = ideoAllow != null && ideoAllow.Count > 0;
+			bool anomalyActive = ModsConfig.AnomalyActive;
+
+			foreach (BreakInfo info in MentalBreakCatalog.All)
+			{
+				try
+				{
+					if (info.Intensity == MentalBreakIntensity.None) continue;
+					if (info.Requirements.AnomalousBreak && !anomalyActive) continue;
+					if (useIdeoFilter && !ideoAllow!.Contains(info.Def)) continue;
+					if (!info.CanOccurFor(pawn)) continue;
+
+					float weight = info.CommonalityFor(pawn, moodCaused: true);
+					if (weight <= 0f || float.IsNaN(weight) || float.IsInfinity(weight)) continue;
+
+					if (!groups.TryGetValue(info.Intensity, out var bucket))
+						groups[info.Intensity] = bucket = new List<(BreakInfo, float)>(8);
+					bucket.Add((info, weight));
+				}
+				catch (Exception ex)
+				{
+					Log.WarningOnce(
+						$"[BreakTimer] Skipping break {info.DefName} in possible-list: {ex.Message}",
+						unchecked((int)0xB12D7100 ^ info.DefName.GetHashCode()));
+				}
+			}
+
+			if (groups.Count == 0)
+				return "No mental breaks currently possible for this pawn.";
+
+			var sb = new StringBuilder();
+			sb.AppendLine("Possible mental breaks:");
+
+			bool firstSection = true;
+			foreach (MentalBreakIntensity intensity in IntensityOrder)
+			{
+				if (!groups.TryGetValue(intensity, out var list) || list.Count == 0) continue;
+				float total = list.Sum(e => e.weight);
+				if (total <= 0f) continue;
+
+				if (!firstSection) sb.AppendLine();
+				firstSection = false;
+
+				sb.Append(intensity.ToString()).AppendLine(":");
+				foreach (var (info, weight) in list.OrderByDescending(e => e.weight))
+				{
+					float pct = weight / total;
+					string label = info.LabelCap;
+					if (info.Requirements.AnomalousBreak)
+						label += " (anomaly)";
+					sb.Append("  ").Append(label).Append(" - ").AppendLine(pct.ToStringPercent("0"));
+				}
 			}
 
 			return sb.ToString().TrimEnd();
