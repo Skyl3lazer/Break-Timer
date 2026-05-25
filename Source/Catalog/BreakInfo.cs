@@ -45,8 +45,24 @@ namespace BreakTimer
 		public BreakDuration? Duration { get; }
 
 		public string DefName => Def.defName;
-		public string Label => Def.label ?? Def.defName;
-		public string LabelCap => Def.LabelCap.NullOrEmpty() ? Def.defName : Def.LabelCap.RawText;
+
+		/// <summary>
+		/// Friendly, lowercase label. Most vanilla <see cref="MentalBreakDef"/>s
+		/// (Berserk, FireStartingSpree, ...) ship without a <c>label</c>, so we fall
+		/// back to the underlying <see cref="MentalStateDef.label"/> before finally
+		/// surrendering to the def name. Use <see cref="LabelCap"/> for UI display.
+		/// </summary>
+		public string Label
+		{
+			get
+			{
+				if (!Def.label.NullOrEmpty()) return Def.label;
+				if (MentalState != null && !MentalState.label.NullOrEmpty()) return MentalState.label;
+				return Def.defName;
+			}
+		}
+
+		public string LabelCap => Label.CapitalizeFirst();
 
 		/// <summary>
 		/// Convenience: the actual worker instance the game uses for this break. Wraps the

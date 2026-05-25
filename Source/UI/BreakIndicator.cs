@@ -131,28 +131,37 @@ namespace BreakTimer
 		}
 
 		/// <summary>
-		/// Builds the tooltip shown when the pawn is not in a mental break. We restrict
-		/// the list to the single intensity tier that <em>the pawn's current mood</em>
-		/// makes them eligible for — mirroring the game's selector, which only ever rolls
-		/// breaks at the highest tier currently below threshold — and we filter to breaks
-		/// the worker reports as actually able to fire for this pawn. Each break's
-		/// percentage is its <c>Worker.CommonalityFor(pawn, moodCaused: true)</c>
-		/// normalised within the chosen tier, matching <c>MentalBreaker</c>'s own math.
+		/// Builds the tooltip shown when the pawn is not in a mental break. Combines:
+		/// (a) the mood-driven section — the single intensity tier the pawn's
+		/// <c>CurMood</c> currently qualifies them for, with selection chances normalised
+		/// the same way <c>MentalBreaker</c> rolls them; and (b) an "other potential
+		/// states" section listing mood-independent triggers (Pyromaniac-style trait
+		/// <see cref="TraitMentalStateGiver"/> entries and baby <see cref="MentalFitDef"/>
+		/// fits), each annotated with its source and MTB.
 		/// </summary>
 		static string BuildPossibleBreaksTooltip(Pawn pawn)
 		{
-			MentalBreaker? breaker = pawn.mindState?.mentalBreaker;
-			if (breaker == null)
-				return "Possible mental breaks:\n  (none — no mental breaker on this pawn)";
+			string moodSection = BuildMoodTierSection(pawn);
+			string otherSection = BuildOtherTriggersSection(pawn);
 
-			if (breaker.Blocked)
-				return "Possible mental breaks:\n  (none — mental breaks are currently blocked)";
-			if (!breaker.CanDoRandomMentalBreaks)
-				return "Possible mental breaks:\n  (none — this pawn cannot have random mental breaks)";
+			if (moodSection.Length == 0 && otherSection.Length == 0)
+				return "Possible mental breaks:\n  (none — mood is above all break thresholds)";
+
+			if (moodSection.Length > 0 && otherSection.Length > 0)
+				return moodSection + "\n\n" + otherSection;
+
+			return moodSection.Length > 0 ? moodSection : otherSection;
+		}
+
+		static string BuildMoodTierSection(Pawn pawn)
+		{
+			MentalBreaker? breaker = pawn.mindState?.mentalBreaker;
+			if (breaker == null) return string.Empty;
+			if (breaker.Blocked) return "Possible mental breaks:\n  (none — mental breaks are currently blocked)";
+			if (!breaker.CanDoRandomMentalBreaks) return string.Empty;
 
 			MentalBreakIntensity? eligible = HighestEligibleIntensity(breaker);
-			if (eligible is null)
-				return "Possible mental breaks:\n  (none — mood is above all break thresholds)";
+			if (eligible is null) return string.Empty;
 
 			var entries = new List<(BreakInfo info, float weight)>(8);
 
@@ -203,6 +212,133 @@ namespace BreakTimer
 			}
 
 			return sb.ToString().TrimEnd();
+		}
+
+		readonly struct ExtraTrigger
+		{
+			public ExtraTrigger(string label, string source, float mtbDays)
+			{
+				Label = label;
+				Source = source;
+				MtbDays = mtbDays;
+			}
+
+			public string Label { get; }
+			public string Source { get; }
+			public float MtbDays { get; }
+		}
+
+		static string BuildOtherTriggersSection(Pawn pawn)
+		{
+			var extras = new List<ExtraTrigger>(4);
+			CollectTraitTriggers(pawn, extras);
+			CollectMentalFitTriggers(pawn, extras);
+			if (extras.Count == 0) return string.Empty;
+
+			extras.Sort((a, b) => a.MtbDays.CompareTo(b.MtbDays));
+
+			var sb = new StringBuilder();
+			sb.AppendLine("Other potential states:");
+			foreach (ExtraTrigger e in extras)
+			{
+				sb.Append("  ")
+					.Append(e.Label)
+					.Append(" (")
+					.Append(e.Source)
+					.Append(") - every ~")
+					.AppendLine(FormatMtb(e.MtbDays));
+			}
+			return sb.ToString().TrimEnd();
+		}
+
+		static void CollectTraitTriggers(Pawn pawn, List<ExtraTrigger> sink)
+		{
+			TraitSet? traits = pawn.story?.traits;
+			if (traits == null) return;
+
+			foreach (Trait trait in traits.allTraits)
+			{
+				try
+				{
+					if (trait.Suppressed) continue;
+					TraitDegreeData data = trait.CurrentData;
+					if (data == null) continue;
+
+					if (data.forcedMentalState != null && data.forcedMentalStateMtbDays > 0f)
+					{
+						MentalStateDef state = data.forcedMentalState;
+						if (state.Worker == null || state.Worker.StateCanOccur(pawn))
+							sink.Add(new ExtraTrigger(
+								StateLabel(state),
+								"trait: " + (trait.LabelCap ?? trait.def.defName),
+								data.forcedMentalStateMtbDays));
+					}
+
+					if (data.randomMentalState != null && data.randomMentalStateMtbDaysMoodCurve != null)
+					{
+						MentalStateDef state = data.randomMentalState;
+						float mood = pawn.needs?.mood?.CurLevelPercentage ?? 1f;
+						float mtb = data.randomMentalStateMtbDaysMoodCurve.Evaluate(mood);
+						if (mtb > 0f && !float.IsInfinity(mtb) && !float.IsNaN(mtb)
+							&& (state.Worker == null || state.Worker.StateCanOccur(pawn)))
+						{
+							sink.Add(new ExtraTrigger(
+								StateLabel(state),
+								"trait: " + (trait.LabelCap ?? trait.def.defName),
+								mtb));
+						}
+					}
+				}
+				catch (Exception ex)
+				{
+					Log.WarningOnce(
+						$"[BreakTimer] Trait giver scan failed for {trait?.def?.defName ?? "?"}: {ex.Message}",
+						unchecked((int)0xB12D7200 ^ (trait?.def?.defName?.GetHashCode() ?? 0)));
+				}
+			}
+		}
+
+		static void CollectMentalFitTriggers(Pawn pawn, List<ExtraTrigger> sink)
+		{
+			List<MentalFitDef> fits = DefDatabase<MentalFitDef>.AllDefsListForReading;
+			if (fits == null || fits.Count == 0) return;
+
+			string stage = pawn.DevelopmentalStage.ToString().ToLowerInvariant();
+
+			foreach (MentalFitDef fit in fits)
+			{
+				try
+				{
+					float mtb = fit.CalculateMTBDays(pawn);
+					if (mtb <= 0f || float.IsInfinity(mtb) || float.IsNaN(mtb)) continue;
+
+					MentalStateDef? state = fit.mentalState;
+					if (state?.Worker != null && !state.Worker.StateCanOccur(pawn)) continue;
+
+					string label = state != null ? StateLabel(state) : (fit.LabelCap.RawText ?? fit.defName);
+					sink.Add(new ExtraTrigger(label, stage, mtb));
+				}
+				catch (Exception ex)
+				{
+					Log.WarningOnce(
+						$"[BreakTimer] MentalFit scan failed for {fit?.defName ?? "?"}: {ex.Message}",
+						unchecked((int)0xB12D7300 ^ (fit?.defName?.GetHashCode() ?? 0)));
+				}
+			}
+		}
+
+		static string StateLabel(MentalStateDef state)
+		{
+			string? raw = state.LabelCap.RawText;
+			if (!raw.NullOrEmpty()) return raw!;
+			return state.label.NullOrEmpty() ? state.defName : state.label.CapitalizeFirst();
+		}
+
+		static string FormatMtb(float mtbDays)
+		{
+			if (mtbDays >= 1f) return Mathf.RoundToInt(mtbDays).ToString() + "d";
+			int hours = Mathf.Max(1, Mathf.CeilToInt(mtbDays * 24f));
+			return hours.ToString() + "h";
 		}
 
 		/// <summary>
