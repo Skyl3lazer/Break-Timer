@@ -21,6 +21,11 @@ namespace BreakTimer.Patches
 		{
 			if (!__result) return;
 
+			// Always punch the tooltip cache, even if the BreakTimerGameComponent isn't
+			// ready yet — otherwise the hover string can lag a state transition by up
+			// to TooltipTextCacheTtlSeconds.
+			BreakIndicator.InvalidateTooltipCache();
+
 			BreakTimerGameComponent? store = BreakTimerGameComponent.Instance;
 			if (store is null) return;
 

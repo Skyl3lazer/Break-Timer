@@ -54,12 +54,61 @@ namespace BreakTimer
 			{
 				Widgets.DrawHighlight(iconRect);
 				int tooltipId = HashTooltipId(pawn);
-				Func<string> getter = () => BuildTooltip(pawn);
+				Func<string> getter = () => GetCachedTooltip(pawn);
 				TooltipHandler.TipRegion(iconRect, new TipSignal(getter, tooltipId));
 			}
 		}
 
 		static int HashTooltipId(Pawn pawn) => unchecked(0x4B524554 ^ pawn.thingIDNumber);
+
+		// Tooltip text-cache. Without it, RimWorld's TipSignal re-invokes the getter on
+		// every frame the hover is held (~60 Hz), so the entire collect → disambiguate →
+		// render pipeline — including reflective MentalBreakWorker.BreakCanOccur and
+		// MentalFitDef.CalculateMTBDays calls — runs against the live def database every
+		// 16 ms. None of the inputs change that fast: mood ticks once per ~60 game ticks
+		// and the displayed "Remaining" values round to whole hours. Caching the
+		// rendered string for ~1 s real-time slashes work by ~60×; invalidating on
+		// mental-state-def changes keeps "entering / leaving a break" instant.
+		const float TooltipTextCacheTtlSeconds = 1.0f;
+
+		static int cachedPawnId;
+		static MentalStateDef? cachedActiveStateDef;
+		static float cachedAtRealtime;
+		static string? cachedTooltipText;
+
+		static string GetCachedTooltip(Pawn? pawn)
+		{
+			if (pawn is null) return "(no pawn selected)";
+
+			int id = pawn.thingIDNumber;
+			MentalStateDef? activeStateDef = pawn.MentalState?.def;
+			float now = Time.realtimeSinceStartup;
+
+			if (cachedTooltipText != null
+				&& cachedPawnId == id
+				&& ReferenceEquals(cachedActiveStateDef, activeStateDef)
+				&& now - cachedAtRealtime < TooltipTextCacheTtlSeconds)
+			{
+				return cachedTooltipText;
+			}
+
+			string text = BuildTooltip(pawn);
+			cachedPawnId = id;
+			cachedActiveStateDef = activeStateDef;
+			cachedAtRealtime = now;
+			cachedTooltipText = text;
+			return text;
+		}
+
+		/// <summary>
+		/// Invalidates the rendered-tooltip cache. Called from the mental-state
+		/// start/end Harmony patches so a transition is reflected on the very next
+		/// frame instead of waiting out the TTL window.
+		/// </summary>
+		public static void InvalidateTooltipCache()
+		{
+			cachedTooltipText = null;
+		}
 
 		static string BuildTooltip(Pawn? pawn)
 		{

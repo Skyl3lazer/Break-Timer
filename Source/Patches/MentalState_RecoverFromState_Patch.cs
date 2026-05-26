@@ -16,6 +16,8 @@ namespace BreakTimer.Patches
 	{
 		static void Postfix(MentalState __instance)
 		{
+			BreakIndicator.InvalidateTooltipCache();
+
 			BreakTimerGameComponent? store = BreakTimerGameComponent.Instance;
 			if (store is null) return;
 
