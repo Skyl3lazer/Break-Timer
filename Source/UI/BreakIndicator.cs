@@ -95,23 +95,29 @@ namespace BreakTimer
 			long absStartTick = ToAbsTick(startTick);
 			sb.Append("Started: ").AppendLine(GenDate.DateFullStringWithHourAt(absStartTick, longLat));
 
-			BreakInfo? info = MentalBreakCatalog.GetForState(state.def);
-			if (info?.Duration != null)
+			// Mood-driven breaks resolve through BreakInfo; everything else (hediff
+			// givers like WanderConfused, trait givers, etc.) falls back to the broader
+			// MentalStateInfo catalog so the player still gets a duration estimate.
+			BreakDuration? duration =
+				MentalBreakCatalog.GetForState(state.def)?.Duration
+				?? MentalBreakCatalog.GetStateInfo(state.def)?.Duration;
+
+			if (duration != null)
 			{
-				BreakDurationRemaining remaining = info.Duration.GetRemaining(state);
+				BreakDurationRemaining remaining = duration.GetRemaining(state);
 				long minEnd = ToAbsTick(nowTick + remaining.MinTicks);
 				long maxEnd = ToAbsTick(nowTick + remaining.MaxTicks);
 
 				int minHours = TicksToHoursCeil(remaining.MinTicks);
 				int maxHours = TicksToHoursCeil(remaining.MaxTicks);
-				if (info.Duration.HasUnboundedMax)
+				if (duration.HasUnboundedMax)
 					sb.Append("Remaining: ").Append(minHours).AppendLine("h+");
 				else if (minHours == maxHours)
 					sb.Append("Remaining: ").Append(minHours).AppendLine("h");
 				else
 					sb.Append("Remaining: ").Append(minHours).Append("h - ").Append(maxHours).AppendLine("h");
 
-				if (info.Duration.HasUnboundedMax)
+				if (duration.HasUnboundedMax)
 				{
 					sb.Append("Ends after: ")
 						.Append(GenDate.DateFullStringWithHourAt(minEnd, longLat))
@@ -162,6 +168,7 @@ namespace BreakTimer
 			var others = new List<ExtraTrigger>(4);
 			CollectTraitTriggers(pawn, others);
 			CollectMentalFitTriggers(pawn, others);
+			CollectHediffTriggers(pawn, others);
 			others.Sort((a, b) => a.MtbDays.CompareTo(b.MtbDays));
 
 			int moodCount = mood.Entries?.Count ?? 0;
@@ -365,6 +372,51 @@ namespace BreakTimer
 					Log.WarningOnce(
 						$"[BreakTimer] Trait giver scan failed for {trait?.def?.defName ?? "?"}: {ex.Message}",
 						unchecked((int)0xB12D7200 ^ (trait?.def?.defName?.GetHashCode() ?? 0)));
+				}
+			}
+		}
+
+		static void CollectHediffTriggers(Pawn pawn, List<ExtraTrigger> sink)
+		{
+			HediffSet? hediffSet = pawn.health?.hediffSet;
+			List<Hediff>? hediffs = hediffSet?.hediffs;
+			if (hediffs == null || hediffs.Count == 0) return;
+
+			foreach (Hediff hediff in hediffs)
+			{
+				if (hediff == null) continue;
+				try
+				{
+					HediffStage? stage = hediff.CurStage;
+					List<MentalStateGiver>? givers = stage?.mentalStateGivers;
+					if (givers == null || givers.Count == 0) continue;
+
+					string hediffLabel = hediff.LabelCap;
+					if (string.IsNullOrEmpty(hediffLabel))
+						hediffLabel = hediff.def?.LabelCap.RawText ?? hediff.def?.defName ?? "hediff";
+					string sourceTag = "Condition: " + hediffLabel;
+
+					foreach (MentalStateGiver giver in givers)
+					{
+						if (giver?.mentalState == null) continue;
+						if (giver.mtbDays <= 0f || float.IsInfinity(giver.mtbDays) || float.IsNaN(giver.mtbDays))
+							continue;
+
+						MentalStateDef state = giver.mentalState;
+						if (state.Worker != null && !state.Worker.StateCanOccur(pawn)) continue;
+
+						sink.Add(new ExtraTrigger(
+							BreakLabels.ForState(state),
+							state.defName,
+							sourceTag,
+							giver.mtbDays));
+					}
+				}
+				catch (Exception ex)
+				{
+					Log.WarningOnce(
+						$"[BreakTimer] Hediff giver scan failed for {hediff?.def?.defName ?? "?"}: {ex.Message}",
+						unchecked((int)0xB12D7400 ^ (hediff?.def?.defName?.GetHashCode() ?? 0)));
 				}
 			}
 		}

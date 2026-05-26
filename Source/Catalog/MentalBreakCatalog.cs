@@ -24,6 +24,7 @@ namespace BreakTimer
 		static Dictionary<MentalBreakIntensity, BreakInfo[]> byIntensity = new();
 		static Dictionary<MentalStateCategory, BreakInfo[]> byCategory = new();
 		static Dictionary<MentalStateDef, BreakInfo> byState = new();
+		static Dictionary<MentalStateDef, MentalStateInfo> stateInfoByDef = new();
 
 		public static IReadOnlyList<BreakInfo> All
 		{
@@ -61,6 +62,20 @@ namespace BreakTimer
 			if (state is null) return null;
 			EnsureBuilt();
 			return byState.TryGetValue(state, out BreakInfo info) ? info : null;
+		}
+
+		/// <summary>
+		/// Returns the <see cref="MentalStateInfo"/> for any defined <see cref="MentalStateDef"/>,
+		/// regardless of whether it has a <see cref="MentalBreakDef"/>. This is the lookup
+		/// for "the pawn is in mental state X — what's its duration and label?" cases that
+		/// include hediff-driven states like <c>WanderConfused</c> (Dementia/Alzheimer's),
+		/// trait givers, mental-fit givers, and scripted-incident states.
+		/// </summary>
+		public static MentalStateInfo? GetStateInfo(MentalStateDef? state)
+		{
+			if (state is null) return null;
+			EnsureBuilt();
+			return stateInfoByDef.TryGetValue(state, out MentalStateInfo info) ? info : null;
 		}
 
 		public static IReadOnlyList<BreakInfo> OfIntensity(MentalBreakIntensity intensity)
@@ -182,8 +197,24 @@ namespace BreakTimer
 				.GroupBy(b => b.Category)
 				.ToDictionary(g => g.Key, g => g.ToArray());
 
+			List<MentalStateDef> stateDefs = DefDatabase<MentalStateDef>.AllDefsListForReading;
+			stateInfoByDef = new Dictionary<MentalStateDef, MentalStateInfo>(stateDefs.Count);
+			for (int i = 0; i < stateDefs.Count; i++)
+			{
+				MentalStateDef sdef = stateDefs[i];
+				if (sdef == null) continue;
+				try
+				{
+					stateInfoByDef[sdef] = new MentalStateInfo(sdef);
+				}
+				catch (Exception ex)
+				{
+					Log.Error($"[BreakTimer] Failed to build MentalStateInfo for {sdef.defName}: {ex}");
+				}
+			}
+
 			if (Prefs.DevMode)
-				Log.Message($"[BreakTimer] Cached {all.Length} mental break defs across {byIntensity.Count} intensity buckets.");
+				Log.Message($"[BreakTimer] Cached {all.Length} mental break defs across {byIntensity.Count} intensity buckets, and {stateInfoByDef.Count} mental state defs.");
 		}
 	}
 }
