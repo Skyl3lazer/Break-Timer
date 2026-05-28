@@ -43,7 +43,7 @@ namespace BreakTimer
 				IconSize,
 				IconSize);
 
-			bool inBreak = pawn.MentalState != null;
+			bool inBreak = pawn.MentalState != null || GetActiveBreakHediff(pawn) != null;
 
 			Color prev = GUI.color;
 			GUI.color = inBreak ? BreakColor : IdleColor;
@@ -73,6 +73,7 @@ namespace BreakTimer
 
 		static int cachedPawnId;
 		static MentalStateDef? cachedActiveStateDef;
+		static HediffDef? cachedActiveBreakHediffDef;
 		static float cachedAtRealtime;
 		static string? cachedTooltipText;
 
@@ -82,11 +83,13 @@ namespace BreakTimer
 
 			int id = pawn.thingIDNumber;
 			MentalStateDef? activeStateDef = pawn.MentalState?.def;
+			HediffDef? activeBreakHediffDef = GetActiveBreakHediff(pawn)?.def;
 			float now = Time.realtimeSinceStartup;
 
 			if (cachedTooltipText != null
 				&& cachedPawnId == id
 				&& ReferenceEquals(cachedActiveStateDef, activeStateDef)
+				&& ReferenceEquals(cachedActiveBreakHediffDef, activeBreakHediffDef)
 				&& now - cachedAtRealtime < TooltipTextCacheTtlSeconds)
 			{
 				return cachedTooltipText;
@@ -95,6 +98,7 @@ namespace BreakTimer
 			string text = BuildTooltip(pawn);
 			cachedPawnId = id;
 			cachedActiveStateDef = activeStateDef;
+			cachedActiveBreakHediffDef = activeBreakHediffDef;
 			cachedAtRealtime = now;
 			cachedTooltipText = text;
 			return text;
@@ -117,9 +121,13 @@ namespace BreakTimer
 			try
 			{
 				MentalState? state = pawn.MentalState;
-				return state?.def is null
-					? BuildPossibleBreaksTooltip(pawn)
-					: BuildActiveBreakTooltip(pawn, state);
+				if (state?.def != null)
+					return BuildActiveBreakTooltip(pawn, state);
+
+				Hediff? breakHediff = GetActiveBreakHediff(pawn);
+				return breakHediff != null
+					? BuildHediffBreakTooltip(pawn, breakHediff)
+					: BuildPossibleBreaksTooltip(pawn);
 			}
 			catch (Exception ex)
 			{
@@ -193,6 +201,71 @@ namespace BreakTimer
 			}
 
 			return sb.ToString().TrimEnd();
+		}
+
+		// Catatonic is a MentalBreakDef with no <mentalState>: its worker applies the
+		// CatatonicBreakdown hediff instead, so pawn.MentalState is always null for it.
+		// Detect that hediff so the indicator still reports an active break (the symptom
+		// is most visible after a map switch, when the pawn is re-selected elsewhere).
+		const string CatatonicHediffDefName = "CatatonicBreakdown";
+
+		static bool catatonicLookupDone;
+		static HediffDef? catatonicHediffDef;
+
+		static HediffDef? CatatonicHediffDef
+		{
+			get
+			{
+				if (!catatonicLookupDone)
+				{
+					catatonicHediffDef = DefDatabase<HediffDef>.GetNamedSilentFail(CatatonicHediffDefName);
+					catatonicLookupDone = true;
+				}
+				return catatonicHediffDef;
+			}
+		}
+
+		static Hediff? GetActiveBreakHediff(Pawn pawn)
+		{
+			HediffDef? def = CatatonicHediffDef;
+			if (def is null) return null;
+			return pawn.health?.hediffSet?.GetFirstHediffOfDef(def);
+		}
+
+		static string BuildHediffBreakTooltip(Pawn pawn, Hediff hediff)
+		{
+			var sb = new StringBuilder();
+
+			string label = MentalBreakCatalog.Get("Catatonic")?.LabelCap ?? hediff.LabelCap;
+			sb.Append("Break: ").AppendLine(label);
+
+			int nowTick = Find.TickManager.TicksGame;
+			int startTick = nowTick - Mathf.Max(0, hediff.ageTicks);
+			Vector2 longLat = LongLatFor(pawn);
+			sb.Append("Started: ").AppendLine(GenDate.DateFullStringWithHourAt(ToAbsTick(startTick), longLat));
+
+			int remainingTicks = RemainingDisappearTicks(hediff);
+			if (remainingTicks > 0)
+			{
+				sb.Append("Remaining: ").Append(TicksToHoursCeil(remainingTicks)).AppendLine("h");
+				sb.Append("Ends: ")
+					.AppendLine(GenDate.DateFullStringWithHourAt(ToAbsTick(nowTick + remainingTicks), longLat));
+			}
+
+			string? description = hediff.def?.description;
+			if (!description.NullOrEmpty())
+			{
+				sb.AppendLine();
+				sb.Append(description);
+			}
+
+			return sb.ToString().TrimEnd();
+		}
+
+		static int RemainingDisappearTicks(Hediff hediff)
+		{
+			HediffComp_Disappears? comp = (hediff as HediffWithComps)?.TryGetComp<HediffComp_Disappears>();
+			return comp?.ticksToDisappear ?? 0;
 		}
 
 		/// <summary>
