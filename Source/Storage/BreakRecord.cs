@@ -32,7 +32,7 @@ namespace BreakTimer
 		public ActiveBreakRecord() { }
 
 		public ActiveBreakRecord(
-			MentalStateDef stateDef,
+			MentalStateDef? stateDef,
 			MentalBreakDef? breakDef,
 			int startTick,
 			bool causedByMood,

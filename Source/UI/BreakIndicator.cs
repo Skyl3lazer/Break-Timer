@@ -43,7 +43,7 @@ namespace BreakTimer
 				IconSize,
 				IconSize);
 
-			bool inBreak = pawn.MentalState != null || GetActiveBreakHediff(pawn) != null;
+			bool inBreak = pawn.MentalState != null || CatatonicBreak.FindOn(pawn) != null;
 
 			Color prev = GUI.color;
 			GUI.color = inBreak ? BreakColor : IdleColor;
@@ -83,7 +83,7 @@ namespace BreakTimer
 
 			int id = pawn.thingIDNumber;
 			MentalStateDef? activeStateDef = pawn.MentalState?.def;
-			HediffDef? activeBreakHediffDef = GetActiveBreakHediff(pawn)?.def;
+			HediffDef? activeBreakHediffDef = CatatonicBreak.FindOn(pawn)?.def;
 			float now = Time.realtimeSinceStartup;
 
 			if (cachedTooltipText != null
@@ -124,7 +124,7 @@ namespace BreakTimer
 				if (state?.def != null)
 					return BuildActiveBreakTooltip(pawn, state);
 
-				Hediff? breakHediff = GetActiveBreakHediff(pawn);
+				Hediff? breakHediff = CatatonicBreak.FindOn(pawn);
 				return breakHediff != null
 					? BuildHediffBreakTooltip(pawn, breakHediff)
 					: BuildPossibleBreaksTooltip(pawn);
@@ -205,46 +205,23 @@ namespace BreakTimer
 
 		// Catatonic is a MentalBreakDef with no <mentalState>: its worker applies the
 		// CatatonicBreakdown hediff instead, so pawn.MentalState is always null for it.
-		// Detect that hediff so the indicator still reports an active break (the symptom
-		// is most visible after a map switch, when the pawn is re-selected elsewhere).
-		const string CatatonicHediffDefName = "CatatonicBreakdown";
-
-		static bool catatonicLookupDone;
-		static HediffDef? catatonicHediffDef;
-
-		static HediffDef? CatatonicHediffDef
-		{
-			get
-			{
-				if (!catatonicLookupDone)
-				{
-					catatonicHediffDef = DefDatabase<HediffDef>.GetNamedSilentFail(CatatonicHediffDefName);
-					catatonicLookupDone = true;
-				}
-				return catatonicHediffDef;
-			}
-		}
-
-		static Hediff? GetActiveBreakHediff(Pawn pawn)
-		{
-			HediffDef? def = CatatonicHediffDef;
-			if (def is null) return null;
-			return pawn.health?.hediffSet?.GetFirstHediffOfDef(def);
-		}
-
+		// Detection and timing live on CatatonicBreak so the patches stay in sync.
 		static string BuildHediffBreakTooltip(Pawn pawn, Hediff hediff)
 		{
 			var sb = new StringBuilder();
 
-			string label = MentalBreakCatalog.Get("Catatonic")?.LabelCap ?? hediff.LabelCap;
+			string label = CatatonicBreak.BreakDef != null
+				? BreakLabels.ForBreakCap(CatatonicBreak.BreakDef)
+				: hediff.LabelCap;
 			sb.Append("Break: ").AppendLine(label);
 
 			int nowTick = Find.TickManager.TicksGame;
-			int startTick = nowTick - Mathf.Max(0, hediff.ageTicks);
+			ActiveBreakRecord? rec = BreakTimerGameComponent.Instance?.GetActive(pawn);
+			int startTick = rec?.startTick ?? (nowTick - Mathf.Max(0, hediff.ageTicks));
 			Vector2 longLat = LongLatFor(pawn);
 			sb.Append("Started: ").AppendLine(GenDate.DateFullStringWithHourAt(ToAbsTick(startTick), longLat));
 
-			int remainingTicks = RemainingDisappearTicks(hediff);
+			int remainingTicks = CatatonicBreak.RemainingTicks(hediff);
 			if (remainingTicks > 0)
 			{
 				sb.Append("Remaining: ").Append(TicksToHoursCeil(remainingTicks)).AppendLine("h");
@@ -260,12 +237,6 @@ namespace BreakTimer
 			}
 
 			return sb.ToString().TrimEnd();
-		}
-
-		static int RemainingDisappearTicks(Hediff hediff)
-		{
-			HediffComp_Disappears? comp = (hediff as HediffWithComps)?.TryGetComp<HediffComp_Disappears>();
-			return comp?.ticksToDisappear ?? 0;
 		}
 
 		/// <summary>

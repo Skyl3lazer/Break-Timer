@@ -78,6 +78,35 @@ namespace BreakTimer
 		}
 
 		/// <summary>
+		/// Records the start of a break that has no <see cref="MentalState"/> (its worker
+		/// applies a hediff instead, e.g. Catatonic). Mirrors <see cref="OnBreakStarted"/>
+		/// but keys off the <see cref="MentalBreakDef"/> since there's no live state.
+		/// </summary>
+		public void OnHediffBreakStarted(Pawn pawn, MentalBreakDef? breakDef, string? reason, bool causedByMood)
+		{
+			if (pawn is null || breakDef is null) return;
+
+			int startTick = Find.TickManager.TicksGame;
+			var record = new ActiveBreakRecord(
+				null,
+				breakDef,
+				startTick,
+				causedByMood,
+				causedByDamage: false,
+				causedByPsycast: false,
+				causedByPawn: null,
+				reason);
+
+			if (active.TryGetValue(pawn, out ActiveBreakRecord prior))
+				ArchiveRecord(pawn, prior, startTick);
+
+			active[pawn] = record;
+
+			if (Prefs.DevMode)
+				Log.Message($"[BreakTimer] Start: {pawn.LabelShort} entered {breakDef.defName} (hediff break) at tick {startTick} (reason: {reason ?? "n/a"}).");
+		}
+
+		/// <summary>
 		/// Called by the recovery Harmony patch when a <see cref="MentalState"/> ends.
 		/// Archives the active record into history.
 		/// </summary>
@@ -94,9 +123,28 @@ namespace BreakTimer
 				Log.Message($"[BreakTimer] End: {pawn.LabelShort} recovered from {rec.stateDef?.defName ?? "?"} after {endTick - rec.startTick} ticks.");
 		}
 
-		void ArchiveRecord(Pawn pawn, ActiveBreakRecord rec, int endTick)
+		/// <summary>
+		/// Ends a hediff-driven break (e.g. Catatonic) when its hediff is removed. Only
+		/// archives when the active record matches <paramref name="breakDef"/> so an
+		/// unrelated record isn't clobbered by an incidental hediff removal.
+		/// </summary>
+		public void OnHediffBreakEnded(Pawn pawn, MentalBreakDef? breakDef)
 		{
-			if (rec?.stateDef is null) return;
+			if (pawn is null) return;
+			if (!active.TryGetValue(pawn, out ActiveBreakRecord rec)) return;
+			if (breakDef != null && rec?.breakDef != null && rec.breakDef != breakDef) return;
+
+			int endTick = Find.TickManager.TicksGame;
+			ArchiveRecord(pawn, rec, endTick);
+			active.Remove(pawn);
+
+			if (Prefs.DevMode)
+				Log.Message($"[BreakTimer] End: {pawn.LabelShort} recovered from {rec?.breakDef?.defName ?? rec?.stateDef?.defName ?? "?"} (hediff break) after {endTick - (rec?.startTick ?? endTick)} ticks.");
+		}
+
+		void ArchiveRecord(Pawn pawn, ActiveBreakRecord? rec, int endTick)
+		{
+			if (rec is null || (rec.stateDef is null && rec.breakDef is null)) return;
 			if (!history.TryGetValue(pawn, out PawnBreakHistory bucket))
 			{
 				bucket = new PawnBreakHistory();
@@ -174,7 +222,7 @@ namespace BreakTimer
 			List<Pawn>? dropActive = null;
 			foreach (var kv in active)
 			{
-				if (kv.Key is null || kv.Value?.stateDef is null)
+				if (kv.Key is null || kv.Value is null || (kv.Value.stateDef is null && kv.Value.breakDef is null))
 					(dropActive ??= new List<Pawn>()).Add(kv.Key!);
 			}
 			if (dropActive != null)
