@@ -162,35 +162,7 @@ namespace BreakTimer
 			if (duration != null)
 			{
 				BreakDurationRemaining remaining = duration.GetRemaining(state);
-				long minEnd = ToAbsTick(nowTick + remaining.MinTicks);
-				long maxEnd = ToAbsTick(nowTick + remaining.MaxTicks);
-
-				int minHours = TicksToHoursCeil(remaining.MinTicks);
-				int maxHours = TicksToHoursCeil(remaining.MaxTicks);
-				if (duration.HasUnboundedMax)
-					sb.Append("Remaining: ").Append(minHours).AppendLine("h+");
-				else if (minHours == maxHours)
-					sb.Append("Remaining: ").Append(minHours).AppendLine("h");
-				else
-					sb.Append("Remaining: ").Append(minHours).Append("h - ").Append(maxHours).AppendLine("h");
-
-				if (duration.HasUnboundedMax)
-				{
-					sb.Append("Ends after: ")
-						.Append(GenDate.DateFullStringWithHourAt(minEnd, longLat))
-						.AppendLine(" (no fixed end)");
-				}
-				else if (remaining.MinTicks == remaining.MaxTicks)
-				{
-					sb.Append("Ends: ").AppendLine(GenDate.DateFullStringWithHourAt(maxEnd, longLat));
-				}
-				else
-				{
-					sb.Append("Ends between: ")
-						.Append(GenDate.DateFullStringWithHourAt(minEnd, longLat))
-						.Append("  -  ")
-						.AppendLine(GenDate.DateFullStringWithHourAt(maxEnd, longLat));
-				}
+				AppendRemainingAndEnds(sb, remaining.MinTicks, remaining.MaxTicks, duration.HasUnboundedMax, nowTick, longLat);
 			}
 
 			string description = ExtractDescription(state, pawn);
@@ -201,6 +173,43 @@ namespace BreakTimer
 			}
 
 			return sb.ToString().TrimEnd();
+		}
+
+		// Shared "Remaining: .." / "Ends: .." renderer for any break with a min/max
+		// recovery window, so mood breaks and the hediff-driven catatonic break read the
+		// same way.
+		static void AppendRemainingAndEnds(StringBuilder sb, int minTicks, int maxTicks, bool unboundedMax, int nowTick, Vector2 longLat)
+		{
+			long minEnd = ToAbsTick(nowTick + minTicks);
+			long maxEnd = ToAbsTick(nowTick + maxTicks);
+
+			int minHours = TicksToHoursCeil(minTicks);
+			int maxHours = TicksToHoursCeil(maxTicks);
+
+			if (unboundedMax)
+				sb.Append("Remaining: ").Append(minHours).AppendLine("h+");
+			else if (minHours == maxHours)
+				sb.Append("Remaining: ").Append(minHours).AppendLine("h");
+			else
+				sb.Append("Remaining: ").Append(minHours).Append("h - ").Append(maxHours).AppendLine("h");
+
+			if (unboundedMax)
+			{
+				sb.Append("Ends after: ")
+					.Append(GenDate.DateFullStringWithHourAt(minEnd, longLat))
+					.AppendLine(" (no fixed end)");
+			}
+			else if (minTicks == maxTicks)
+			{
+				sb.Append("Ends: ").AppendLine(GenDate.DateFullStringWithHourAt(maxEnd, longLat));
+			}
+			else
+			{
+				sb.Append("Ends between: ")
+					.Append(GenDate.DateFullStringWithHourAt(minEnd, longLat))
+					.Append("  -  ")
+					.AppendLine(GenDate.DateFullStringWithHourAt(maxEnd, longLat));
+			}
 		}
 
 		// Catatonic is a MentalBreakDef with no <mentalState>: its worker applies the
@@ -221,13 +230,9 @@ namespace BreakTimer
 			Vector2 longLat = LongLatFor(pawn);
 			sb.Append("Started: ").AppendLine(GenDate.DateFullStringWithHourAt(ToAbsTick(startTick), longLat));
 
-			int remainingTicks = CatatonicBreak.RemainingTicks(hediff);
-			if (remainingTicks > 0)
-			{
-				sb.Append("Remaining: ").Append(TicksToHoursCeil(remainingTicks)).AppendLine("h");
-				sb.Append("Ends: ")
-					.AppendLine(GenDate.DateFullStringWithHourAt(ToAbsTick(nowTick + remainingTicks), longLat));
-			}
+			BreakDurationRemaining remaining = CatatonicBreak.GetRemaining(hediff);
+			if (remaining.MaxTicks > 0)
+				AppendRemainingAndEnds(sb, remaining.MinTicks, remaining.MaxTicks, unboundedMax: false, nowTick, longLat);
 
 			string? description = hediff.def?.description;
 			if (!description.NullOrEmpty())

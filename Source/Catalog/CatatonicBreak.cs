@@ -1,3 +1,4 @@
+using UnityEngine;
 using Verse;
 using Verse.AI;
 
@@ -41,14 +42,23 @@ namespace BreakTimer
 		}
 
 		/// <summary>
-		/// Ticks until the breakdown lifts, taken from the hediff's disappears comp. Uses
-		/// EffectiveTicksToDisappear so any TicksLostPerTick scaling is honoured. Returns
-		/// 0 when no timed comp is present.
+		/// Remaining duration as a min/max window rather than the exact countdown. The
+		/// breakdown lasts a value rolled from <c>disappearsAfterTicks</c> (e.g. 100k–300k);
+		/// revealing the rolled total would be unfair, so we report the configured range
+		/// minus elapsed time, mirroring how mood breaks show a min/max remaining. Returns
+		/// a zero window when no timed comp is present.
 		/// </summary>
-		public static int RemainingTicks(Hediff hediff)
+		public static BreakDurationRemaining GetRemaining(Hediff hediff)
 		{
 			HediffComp_Disappears? comp = (hediff as HediffWithComps)?.TryGetComp<HediffComp_Disappears>();
-			return comp?.EffectiveTicksToDisappear ?? 0;
+			if (comp is null) return new BreakDurationRemaining(0, 0, 0);
+
+			IntRange range = comp.Props.disappearsAfterTicks;
+			int elapsed = Mathf.Max(0, hediff.ageTicks);
+			int minRemaining = Mathf.Max(0, range.min - elapsed);
+			int maxRemaining = Mathf.Max(0, range.max - elapsed);
+			int expectedRemaining = Mathf.Max(0, (range.min + range.max) / 2 - elapsed);
+			return new BreakDurationRemaining(minRemaining, expectedRemaining, maxRemaining);
 		}
 	}
 }
