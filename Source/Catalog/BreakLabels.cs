@@ -10,12 +10,6 @@ namespace BreakTimer
 	/// point and then asks <see cref="LabelDisambiguator"/> to add parenthesised
 	/// suffixes only where the visible set actually contains duplicates.
 	/// </summary>
-	/// <remarks>
-	/// Read-only access from the UI thread, so a plain <see cref="Dictionary{TKey,TValue}"/>
-	/// is sufficient. Caching saves the per-call <c>LabelCap.RawText</c> resolution and
-	/// the per-call <see cref="GenText.CapitalizeFirst(string)"/> allocation across all
-	/// the lookups a single tooltip hover does.
-	/// </remarks>
 	public static class BreakLabels
 	{
 		static readonly Dictionary<MentalStateDef, string> stateLabelCap = new();

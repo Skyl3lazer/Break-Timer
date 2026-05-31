@@ -61,12 +61,6 @@ namespace BreakTimer
 		public string Label { get; }
 
 		public string LabelCap { get; }
-
-		/// <summary>
-		/// Convenience: the actual worker instance the game uses for this break. Wraps the
-		/// game's lazy worker accessor so callers can ask <c>BreakCanOccur</c> / <c>CommonalityFor</c>
-		/// directly when the strictest answer is needed.
-		/// </summary>
 		public MentalBreakWorker Worker => Def.Worker;
 
 		/// <summary>
@@ -102,11 +96,7 @@ namespace BreakTimer
 			}
 		}
 
-		/// <summary>
-		/// All requirement reasons (declarative + worker bridge) that would block this
-		/// break for <paramref name="pawn"/>. Returns an empty sequence when the break is
-		/// fully eligible.
-		/// </summary>
+		// Unused, but informationally useful if I want to use it later.
 		public IEnumerable<string> GetUnmetReasons(Pawn pawn)
 		{
 			if (pawn is null) yield break;

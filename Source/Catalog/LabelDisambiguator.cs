@@ -9,23 +9,10 @@ namespace BreakTimer
 	/// Stateless helper that turns a list of items sharing the same friendly label into
 	/// a parallel list of unique display labels by appending a parenthesised fragment
 	/// derived from each item's defName. Stripping happens at <em>word boundaries</em>
-	/// (PascalCase + <c>_</c> / <c>-</c> separators), never mid-word, so
-	/// <c>"Wander_Sad"</c> reduces to <c>"Sad"</c> and never to <c>"ander Sad"</c>.
+	/// (PascalCase + <c>_</c> / <c>-</c> separators)
 	/// </summary>
-	/// <remarks>
-	/// Designed to be called per-tooltip-render with the set of items currently in view:
-	/// disambiguation only kicks in for raw-label groups with more than one visible
-	/// member, so an unambiguous status keeps its plain label even if a global label
-	/// collision exists elsewhere in the def database.
-	/// </remarks>
 	public static class LabelDisambiguator
 	{
-		/// <summary>
-		/// Returns a list of final display labels parallel to <paramref name="items"/>.
-		/// Items whose raw label is unique within <paramref name="items"/> get that label
-		/// back unchanged. Items sharing a raw label get a parenthesised disambiguator
-		/// computed from their defName's unique word fragment.
-		/// </summary>
 		public static List<string> Resolve(IList<(string label, string defName)> items)
 		{
 			if (items == null || items.Count == 0) return new List<string>();

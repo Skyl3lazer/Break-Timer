@@ -12,12 +12,6 @@ namespace BreakTimer
 	/// <see cref="MentalStateDef"/>, and they mirror what <c>MentalBreakWorker.BreakCanOccur</c>
 	/// and <c>MentalStateWorker.StateCanOccur</c> evaluate at runtime.
 	/// </summary>
-	/// <remarks>
-	/// Workers may add additional non-declarative checks (e.g. a food binge requires food on
-	/// the pawn). Those live in <see cref="BreakInfo.CanOccurFor"/> by delegating to the
-	/// worker. <see cref="GetUnmetReasons"/> covers only the declarative side so consumers
-	/// can present concrete missing prerequisites in UI.
-	/// </remarks>
 	public sealed class BreakRequirements
 	{
 		public BreakRequirements(MentalBreakDef breakDef)
@@ -77,11 +71,7 @@ namespace BreakTimer
 		public bool HasAnyTraitOrGeneRequirement
 			=> RequiredTrait != null || RequiredGene != null || RequiredPrecept != null;
 
-		/// <summary>
-		/// Declarative-only check: returns true when none of the static prerequisites
-		/// definitively forbid this break for <paramref name="pawn"/>. This is a fast
-		/// preview filter; the authoritative answer is <see cref="BreakInfo.CanOccurFor"/>.
-		/// </summary>
+
 		public bool DeclarativelyAllowsPawn(Pawn pawn)
 		{
 			if (pawn is null) return false;
