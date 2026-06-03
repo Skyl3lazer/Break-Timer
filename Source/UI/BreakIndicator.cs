@@ -150,7 +150,7 @@ namespace BreakTimer
 
 			Vector2 longLat = LongLatFor(pawn);
 			long absStartTick = ToAbsTick(startTick);
-			sb.Append("Started: ").AppendLine(GenDate.DateFullStringWithHourAt(absStartTick, longLat));
+			AppendDateLine(sb, "Started", absStartTick, longLat);
 
 			// Mood-driven breaks resolve through BreakInfo; everything else (hediff
 			// givers like WanderConfused, trait givers, etc.) falls back to the broader
@@ -195,20 +195,19 @@ namespace BreakTimer
 
 			if (unboundedMax)
 			{
-				sb.Append("Ends after: ")
-					.Append(GenDate.DateFullStringWithHourAt(minEnd, longLat))
-					.AppendLine(" (no fixed end)");
+				sb.AppendLine("Ends after:");
+				sb.Append("  ").AppendLine(GenDate.DateFullStringWithHourAt(minEnd, longLat));
+				sb.AppendLine("  (no fixed end)");
 			}
 			else if (minTicks == maxTicks)
 			{
-				sb.Append("Ends: ").AppendLine(GenDate.DateFullStringWithHourAt(maxEnd, longLat));
+				AppendDateLine(sb, "Ends", maxEnd, longLat);
 			}
 			else
 			{
-				sb.Append("Ends between: ")
-					.Append(GenDate.DateFullStringWithHourAt(minEnd, longLat))
-					.Append("  -  ")
-					.AppendLine(GenDate.DateFullStringWithHourAt(maxEnd, longLat));
+				sb.AppendLine("Ends between:");
+				sb.Append("  Earliest: ").AppendLine(GenDate.DateFullStringWithHourAt(minEnd, longLat));
+				sb.Append("  Latest:   ").AppendLine(GenDate.DateFullStringWithHourAt(maxEnd, longLat));
 			}
 		}
 
@@ -228,7 +227,7 @@ namespace BreakTimer
 			ActiveBreakRecord? rec = BreakTimerGameComponent.Instance?.GetActive(pawn);
 			int startTick = rec?.startTick ?? (nowTick - Mathf.Max(0, hediff.ageTicks));
 			Vector2 longLat = LongLatFor(pawn);
-			sb.Append("Started: ").AppendLine(GenDate.DateFullStringWithHourAt(ToAbsTick(startTick), longLat));
+			AppendDateLine(sb, "Started", ToAbsTick(startTick), longLat);
 
 			BreakDurationRemaining remaining = CatatonicBreak.GetRemaining(hediff);
 			if (remaining.MaxTicks > 0)
@@ -595,6 +594,12 @@ namespace BreakTimer
 		{
 			if (ticks <= 0) return 0;
 			return Mathf.CeilToInt(ticks / (float)GenDate.TicksPerHour);
+		}
+
+		static void AppendDateLine(StringBuilder sb, string label, long absTick, Vector2 longLat)
+		{
+			sb.Append(label).AppendLine(":");
+			sb.Append("  ").AppendLine(GenDate.DateFullStringWithHourAt(absTick, longLat));
 		}
 
 		static Vector2 LongLatFor(Pawn pawn)
