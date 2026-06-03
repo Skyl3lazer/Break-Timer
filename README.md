@@ -2,6 +2,12 @@
 
 A RimWorld mod that shows how long is remaining on a pawn's mental break and lists the mental breaks possible for any given pawn.
 
+## Examples
+
+![Example 1](docs/Example1.png)
+
+![Example 2](docs/Example2.png)
+
 ## Supported versions
 
 - RimWorld 1.6
