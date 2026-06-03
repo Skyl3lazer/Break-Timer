@@ -7,196 +7,105 @@ using Verse.AI;
 
 namespace BreakTimer
 {
-	// Reference catalog of every MentalBreakDef, resolved into BreakInfo records. Built once
-	// at startup (rebuildable on demand) for fast lookups by def, defName, intensity,
-	// category, or pawn eligibility.
-	public static class MentalBreakCatalog
-	{
-		static readonly object buildLock = new();
-		static bool built;
+    // Reference catalog of every MentalBreakDef, resolved into BreakInfo records. Built once
+    // at startup for fast lookups by intensity or owning mental state.
+    public static class MentalBreakCatalog
+    {
+        static readonly object buildLock = new();
+        static bool built;
 
-		static BreakInfo[] all = Array.Empty<BreakInfo>();
-		static Dictionary<MentalBreakDef, BreakInfo> byDef = new();
-		static Dictionary<string, BreakInfo> byDefName = new(StringComparer.Ordinal);
-		static Dictionary<MentalBreakIntensity, BreakInfo[]> byIntensity = new();
-		static Dictionary<MentalStateCategory, BreakInfo[]> byCategory = new();
-		static Dictionary<MentalStateDef, BreakInfo> byState = new();
-		static Dictionary<MentalStateDef, MentalStateInfo> stateInfoByDef = new();
+        static BreakInfo[] all = Array.Empty<BreakInfo>();
+        static Dictionary<MentalBreakIntensity, BreakInfo[]> byIntensity = new();
+        static Dictionary<MentalStateDef, BreakInfo> byState = new();
+        static Dictionary<MentalStateDef, MentalStateInfo> stateInfoByDef = new();
 
-		public static IReadOnlyList<BreakInfo> All
-		{
-			get { EnsureBuilt(); return all; }
-		}
+        // The BreakInfo whose mental state matches, if any.
+        public static BreakInfo? GetForState(MentalStateDef? state)
+        {
+            if (state is null) return null;
+            EnsureBuilt();
+            return byState.TryGetValue(state, out BreakInfo info) ? info : null;
+        }
 
-		public static IReadOnlyDictionary<MentalBreakDef, BreakInfo> ByDef
-		{
-			get { EnsureBuilt(); return byDef; }
-		}
+        // MentalStateInfo for any MentalStateDef, with or without a MentalBreakDef. Covers the
+        // "pawn is in state X — how long and what's it called?" cases that the break path
+        // doesn't own: hediff-driven states (WanderConfused), trait/mental-fit givers, etc.
+        public static MentalStateInfo? GetStateInfo(MentalStateDef? state)
+        {
+            if (state is null) return null;
+            EnsureBuilt();
+            return stateInfoByDef.TryGetValue(state, out MentalStateInfo info) ? info : null;
+        }
 
-		public static IReadOnlyDictionary<string, BreakInfo> ByDefName
-		{
-			get { EnsureBuilt(); return byDefName; }
-		}
+        public static IReadOnlyList<BreakInfo> OfIntensity(MentalBreakIntensity intensity)
+        {
+            EnsureBuilt();
+            return byIntensity.TryGetValue(intensity, out BreakInfo[] arr) ? arr : Array.Empty<BreakInfo>();
+        }
 
-		public static BreakInfo? Get(MentalBreakDef? def)
-		{
-			if (def is null) return null;
-			EnsureBuilt();
-			return byDef.TryGetValue(def, out BreakInfo info) ? info : null;
-		}
+        // Builds the catalog if it hasn't been built. Idempotent; called from BreakTimerMod
+        // at startup.
+        public static void EnsureBuilt()
+        {
+            if (built) return;
+            lock (buildLock)
+            {
+                if (built) return;
+                Build();
+                built = true;
+            }
+        }
 
-		public static BreakInfo? Get(string? defName)
-		{
-			if (string.IsNullOrEmpty(defName)) return null;
-			EnsureBuilt();
-			return byDefName.TryGetValue(defName!, out BreakInfo info) ? info : null;
-		}
+        static void Build()
+        {
+            List<MentalBreakDef> defs = DefDatabase<MentalBreakDef>.AllDefsListForReading;
+            var infos = new List<BreakInfo>(defs.Count);
 
-		// The BreakInfo whose mental state matches, if any.
-		public static BreakInfo? GetForState(MentalStateDef? state)
-		{
-			if (state is null) return null;
-			EnsureBuilt();
-			return byState.TryGetValue(state, out BreakInfo info) ? info : null;
-		}
+            byState = new Dictionary<MentalStateDef, BreakInfo>(defs.Count);
 
-		// MentalStateInfo for any MentalStateDef, with or without a MentalBreakDef. Covers the
-		// "pawn is in state X — how long and what's it called?" cases that the break path
-		// doesn't own: hediff-driven states (WanderConfused), trait/mental-fit givers, etc.
-		public static MentalStateInfo? GetStateInfo(MentalStateDef? state)
-		{
-			if (state is null) return null;
-			EnsureBuilt();
-			return stateInfoByDef.TryGetValue(state, out MentalStateInfo info) ? info : null;
-		}
+            for (int i = 0; i < defs.Count; i++)
+            {
+                MentalBreakDef def = defs[i];
+                BreakInfo info;
+                try
+                {
+                    info = new BreakInfo(def);
+                }
+                catch (Exception ex)
+                {
+                    Log.Error($"[BreakTimer] Failed to build BreakInfo for {def?.defName ?? "<null>"}: {ex}");
+                    continue;
+                }
 
-		public static IReadOnlyList<BreakInfo> OfIntensity(MentalBreakIntensity intensity)
-		{
-			EnsureBuilt();
-			return byIntensity.TryGetValue(intensity, out BreakInfo[] arr) ? arr : Array.Empty<BreakInfo>();
-		}
+                infos.Add(info);
+                if (info.MentalState != null && !byState.ContainsKey(info.MentalState))
+                    byState[info.MentalState] = info;
+            }
 
-		public static IReadOnlyList<BreakInfo> OfCategory(MentalStateCategory category)
-		{
-			EnsureBuilt();
-			return byCategory.TryGetValue(category, out BreakInfo[] arr) ? arr : Array.Empty<BreakInfo>();
-		}
+            all = infos.ToArray();
 
-		// Cheap preview filter: breaks whose declarative requirements allow the pawn. Use
-		// PossibleFor for the authoritative answer (it also runs worker-specific checks).
-		public static IEnumerable<BreakInfo> DeclarativelyAllowedFor(Pawn pawn)
-		{
-			if (pawn is null) yield break;
-			EnsureBuilt();
-			for (int i = 0; i < all.Length; i++)
-			{
-				if (all[i].Requirements.DeclarativelyAllowsPawn(pawn))
-					yield return all[i];
-			}
-		}
+            byIntensity = all
+                .GroupBy(b => b.Intensity)
+                .ToDictionary(g => g.Key, g => g.ToArray());
 
-		// Authoritative: every break whose worker reports it can happen to the pawn right now.
-		public static IEnumerable<BreakInfo> PossibleFor(Pawn pawn)
-		{
-			if (pawn is null) yield break;
-			EnsureBuilt();
-			for (int i = 0; i < all.Length; i++)
-			{
-				if (all[i].CanOccurFor(pawn))
-					yield return all[i];
-			}
-		}
+            List<MentalStateDef> stateDefs = DefDatabase<MentalStateDef>.AllDefsListForReading;
+            stateInfoByDef = new Dictionary<MentalStateDef, MentalStateInfo>(stateDefs.Count);
+            for (int i = 0; i < stateDefs.Count; i++)
+            {
+                MentalStateDef sdef = stateDefs[i];
+                if (sdef == null) continue;
+                try
+                {
+                    stateInfoByDef[sdef] = new MentalStateInfo(sdef);
+                }
+                catch (Exception ex)
+                {
+                    Log.Error($"[BreakTimer] Failed to build MentalStateInfo for {sdef.defName}: {ex}");
+                }
+            }
 
-		// The break the pawn is currently in, by matching their live MentalState back to its
-		// owning MentalBreakDef.
-		public static BreakInfo? GetActiveFor(Pawn pawn)
-		{
-			MentalState? active = pawn?.MentalState;
-			return active != null ? GetForState(active.def) : null;
-		}
-
-		// Builds the catalog if it hasn't been built. Idempotent; called from BreakTimerMod
-		// at startup.
-		public static void EnsureBuilt()
-		{
-			if (built) return;
-			lock (buildLock)
-			{
-				if (built) return;
-				Build();
-				built = true;
-			}
-		}
-
-		// Force a rebuild; mainly for dev reloads.
-		public static void Rebuild()
-		{
-			lock (buildLock)
-			{
-				built = false;
-				Build();
-				built = true;
-			}
-		}
-
-		static void Build()
-		{
-			List<MentalBreakDef> defs = DefDatabase<MentalBreakDef>.AllDefsListForReading;
-			var infos = new List<BreakInfo>(defs.Count);
-
-			byDef = new Dictionary<MentalBreakDef, BreakInfo>(defs.Count);
-			byDefName = new Dictionary<string, BreakInfo>(defs.Count, StringComparer.Ordinal);
-			byState = new Dictionary<MentalStateDef, BreakInfo>(defs.Count);
-
-			for (int i = 0; i < defs.Count; i++)
-			{
-				MentalBreakDef def = defs[i];
-				BreakInfo info;
-				try
-				{
-					info = new BreakInfo(def);
-				}
-				catch (Exception ex)
-				{
-					Log.Error($"[BreakTimer] Failed to build BreakInfo for {def?.defName ?? "<null>"}: {ex}");
-					continue;
-				}
-
-				infos.Add(info);
-				byDef[def] = info;
-				byDefName[def.defName] = info;
-				if (info.MentalState != null && !byState.ContainsKey(info.MentalState))
-					byState[info.MentalState] = info;
-			}
-
-			all = infos.ToArray();
-
-			byIntensity = all
-				.GroupBy(b => b.Intensity)
-				.ToDictionary(g => g.Key, g => g.ToArray());
-
-			byCategory = all
-				.GroupBy(b => b.Category)
-				.ToDictionary(g => g.Key, g => g.ToArray());
-
-			List<MentalStateDef> stateDefs = DefDatabase<MentalStateDef>.AllDefsListForReading;
-			stateInfoByDef = new Dictionary<MentalStateDef, MentalStateInfo>(stateDefs.Count);
-			for (int i = 0; i < stateDefs.Count; i++)
-			{
-				MentalStateDef sdef = stateDefs[i];
-				if (sdef == null) continue;
-				try
-				{
-					stateInfoByDef[sdef] = new MentalStateInfo(sdef);
-				}
-				catch (Exception ex)
-				{
-					Log.Error($"[BreakTimer] Failed to build MentalStateInfo for {sdef.defName}: {ex}");
-				}
-			}
-
-			if (Prefs.DevMode)
-				Log.Message($"[BreakTimer] Cached {all.Length} mental break defs across {byIntensity.Count} intensity buckets, and {stateInfoByDef.Count} mental state defs.");
-		}
-	}
+            if (Prefs.DevMode)
+                Log.Message($"[BreakTimer] Cached {all.Length} mental break defs across {byIntensity.Count} intensity buckets, and {stateInfoByDef.Count} mental state defs.");
+        }
+    }
 }
