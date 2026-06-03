@@ -5,12 +5,8 @@ using Verse.AI;
 
 namespace BreakTimer.Patches
 {
-	/// <summary>
-	/// Postfix on <see cref="MentalState.RecoverFromState"/> that archives the matching
-	/// <see cref="ActiveBreakRecord"/> into the per-pawn history and clears it from the
-	/// active map. Fires for both natural recoveries (MTB roll, downed, sleep) and
-	/// transition recoveries triggered from <c>TryStartMentalState</c>.
-	/// </summary>
+	// Archives the active record into history and clears it. Fires for natural recoveries
+	// (MTB roll, downed, sleep) and transition recoveries from TryStartMentalState.
 	[HarmonyPatch(typeof(MentalState), nameof(MentalState.RecoverFromState))]
 	public static class MentalState_RecoverFromState_Patch
 	{

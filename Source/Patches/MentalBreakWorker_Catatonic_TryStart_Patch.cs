@@ -5,11 +5,8 @@ using Verse.AI;
 
 namespace BreakTimer.Patches
 {
-	/// <summary>
-	/// Catatonic has no <see cref="MentalState"/>; its worker applies the
-	/// CatatonicBreakdown hediff, so the MentalState start patch never sees it. Record
-	/// the start tick here, keyed off the worker that actually begins the break.
-	/// </summary>
+	// Catatonic has no MentalState (its worker applies the CatatonicBreakdown hediff), so the
+	// MentalState start patch never sees it. Record the start tick from the worker instead.
 	[HarmonyPatch(typeof(MentalBreakWorker_Catatonic), nameof(MentalBreakWorker.TryStart))]
 	public static class MentalBreakWorker_Catatonic_TryStart_Patch
 	{

@@ -10,19 +10,15 @@ using Verse.AI;
 
 namespace BreakTimer
 {
-	/// <summary>
-	/// Renders the small lightning-bolt indicator that lives at the right edge of the
-	/// Mood need bar on the Needs tab, plus the hover tooltip describing the pawn's
-	/// active mental break (or a placeholder when there isn't one).
-	/// </summary>
+	// Renders the lightning-bolt indicator at the right edge of the Mood need bar, plus the
+	// hover tooltip describing the pawn's active break (or possible breaks when there's none).
 	public static class BreakIndicator
 	{
 		public const float IconSize = 22f;
 		public const float SidePadding = 4f;
 
-		// Mirrors Need.DrawOnGUI's internal layout: bar sits in the lower half of the
-		// rect, leaving the top half for the "Mood" label, with `num2 = 14f` bottom
-		// padding inside the bar area.
+		// Mirrors Need.DrawOnGUI's layout: the bar sits in the lower half of the rect (top
+		// half is the "Mood" label), with 14f bottom padding inside the bar area.
 		const float NeedLabelHeightFraction = 0.5f;
 		const float NeedBottomMargin = 14f;
 
@@ -61,14 +57,10 @@ namespace BreakTimer
 
 		static int HashTooltipId(Pawn pawn) => unchecked(0x4B524554 ^ pawn.thingIDNumber);
 
-		// Tooltip text-cache. Without it, RimWorld's TipSignal re-invokes the getter on
-		// every frame the hover is held (~60 Hz), so the entire collect → disambiguate →
-		// render pipeline — including reflective MentalBreakWorker.BreakCanOccur and
-		// MentalFitDef.CalculateMTBDays calls — runs against the live def database every
-		// 16 ms. None of the inputs change that fast: mood ticks once per ~60 game ticks
-		// and the displayed "Remaining" values round to whole hours. Caching the
-		// rendered string for ~1 s real-time slashes work by ~60×; invalidating on
-		// mental-state-def changes keeps "entering / leaving a break" instant.
+		// Cache the rendered string ~1s: TipSignal re-invokes the getter every frame, and the
+		// build pipeline makes reflective worker/MTB calls. None of the inputs change that
+		// fast (mood ticks ~every 60, "Remaining" rounds to hours). Patches invalidate on
+		// state change so transitions stay instant.
 		const float TooltipTextCacheTtlSeconds = 1.0f;
 
 		static int cachedPawnId;
@@ -104,11 +96,8 @@ namespace BreakTimer
 			return text;
 		}
 
-		/// <summary>
-		/// Invalidates the rendered-tooltip cache. Called from the mental-state
-		/// start/end Harmony patches so a transition is reflected on the very next
-		/// frame instead of waiting out the TTL window.
-		/// </summary>
+		// Called from the start/end patches so a transition shows on the next frame instead of
+		// waiting out the TTL.
 		public static void InvalidateTooltipCache()
 		{
 			cachedTooltipText = null;
@@ -133,7 +122,7 @@ namespace BreakTimer
 			{
 				Log.ErrorOnce(
 					$"[BreakTimer] Tooltip build failed for {pawn.LabelShort}: {ex}",
-					unchecked((int)0xB12D7001));
+					Once.Id("tooltip-build"));
 				return "Break Timer: error building tooltip (see log).";
 			}
 		}
@@ -152,9 +141,8 @@ namespace BreakTimer
 			long absStartTick = ToAbsTick(startTick);
 			AppendDateLine(sb, "Started", absStartTick, longLat);
 
-			// Mood-driven breaks resolve through BreakInfo; everything else (hediff
-			// givers like WanderConfused, trait givers, etc.) falls back to the broader
-			// MentalStateInfo catalog so the player still gets a duration estimate.
+			// Mood-driven breaks resolve through BreakInfo; everything else (hediff/trait
+			// givers like WanderConfused) falls back to MentalStateInfo for a duration.
 			BreakDuration? duration =
 				MentalBreakCatalog.GetForState(state.def)?.Duration
 				?? MentalBreakCatalog.GetStateInfo(state.def)?.Duration;
@@ -175,9 +163,8 @@ namespace BreakTimer
 			return sb.ToString().TrimEnd();
 		}
 
-		// Shared "Remaining: .." / "Ends: .." renderer for any break with a min/max
-		// recovery window, so mood breaks and the hediff-driven catatonic break read the
-		// same way.
+		// Shared "Remaining/Ends" renderer for any break with a min/max recovery window, so
+		// mood breaks and the catatonic hediff break read the same way.
 		static void AppendRemainingAndEnds(StringBuilder sb, int minTicks, int maxTicks, bool unboundedMax, int nowTick, Vector2 longLat)
 		{
 			long minEnd = ToAbsTick(nowTick + minTicks);
@@ -211,9 +198,8 @@ namespace BreakTimer
 			}
 		}
 
-		// Catatonic is a MentalBreakDef with no <mentalState>: its worker applies the
-		// CatatonicBreakdown hediff instead, so pawn.MentalState is always null for it.
-		// Detection and timing live on CatatonicBreak so the patches stay in sync.
+		// Catatonic has no mentalState — its worker applies the CatatonicBreakdown hediff, so
+		// pawn.MentalState is null. Detection and timing live on CatatonicBreak.
 		static string BuildHediffBreakTooltip(Pawn pawn, Hediff hediff)
 		{
 			var sb = new StringBuilder();
@@ -243,22 +229,12 @@ namespace BreakTimer
 			return sb.ToString().TrimEnd();
 		}
 
-		/// <summary>
-		/// Builds the tooltip shown when the pawn is not in a mental break. Combines:
-		/// (a) the mood-driven section — the single intensity tier the pawn's
-		/// <c>CurMood</c> currently qualifies them for, with selection chances normalised
-		/// the same way <c>MentalBreaker</c> rolls them; and (b) an "other potential
-		/// states" section listing mood-independent triggers (Pyromaniac-style trait
-		/// <see cref="TraitMentalStateGiver"/> entries and baby <see cref="MentalFitDef"/>
-		/// fits), each annotated with its source and MTB.
-		/// </summary>
-		/// <remarks>
-		/// Runs in three passes so disambiguation can be scoped to the visible content:
-		/// (1) gather raw mood-tier and other-trigger entries, (2) ask
-		/// <see cref="LabelDisambiguator"/> for unique display labels across the union of
-		/// both sections, (3) render. This means a defName collision only produces a
-		/// parenthesised tag when both colliding items are actually shown.
-		/// </remarks>
+		// Tooltip when the pawn is not in a break. Two sections: the mood-driven tier (the
+		// single intensity CurMood qualifies for, weighted the way MentalBreaker rolls them)
+		// and "other potential states" (mood-independent trait and mental-fit triggers, each
+		// with source and MTB). Runs in three passes — gather, disambiguate across the union
+		// of both sections, render — so a defName collision only gets a tag when both
+		// colliding items are actually shown.
 		static string BuildPossibleBreaksTooltip(Pawn pawn)
 		{
 			MoodTier mood = CollectMoodTier(pawn);
@@ -305,7 +281,7 @@ namespace BreakTimer
 
 			public MentalBreakIntensity? Intensity { get; }
 			public List<(BreakInfo info, float weight)>? Entries { get; }
-			/// <summary>Optional pre-rendered message that replaces the entries list (e.g. "blocked").</summary>
+			// Optional pre-rendered message that replaces the entries list (e.g. "blocked").
 			public string? Message { get; }
 
 			public static MoodTier Hidden => new(null, null, null);
@@ -330,7 +306,7 @@ namespace BreakTimer
 			{
 				Log.WarningOnce(
 					$"[BreakTimer] Ideo.cachedPossibleMentalBreaks threw: {ex.Message}",
-					unchecked((int)0xB12D7002));
+					Once.Id("ideo-breaks"));
 			}
 			bool useIdeoFilter = ideoAllow != null && ideoAllow.Count > 0;
 			bool anomalyActive = ModsConfig.AnomalyActive;
@@ -352,7 +328,7 @@ namespace BreakTimer
 				{
 					Log.WarningOnce(
 						$"[BreakTimer] Skipping break {info.DefName} in possible-list: {ex.Message}",
-						unchecked((int)0xB12D7100 ^ info.DefName.GetHashCode()));
+						Once.Id("possible-list", info.DefName));
 				}
 			}
 
@@ -468,7 +444,7 @@ namespace BreakTimer
 				{
 					Log.WarningOnce(
 						$"[BreakTimer] Trait giver scan failed for {trait?.def?.defName ?? "?"}: {ex.Message}",
-						unchecked((int)0xB12D7200 ^ (trait?.def?.defName?.GetHashCode() ?? 0)));
+						Once.Id("trait-giver", trait?.def?.defName));
 				}
 			}
 		}
@@ -513,7 +489,7 @@ namespace BreakTimer
 				{
 					Log.WarningOnce(
 						$"[BreakTimer] Hediff giver scan failed for {hediff?.def?.defName ?? "?"}: {ex.Message}",
-						unchecked((int)0xB12D7400 ^ (hediff?.def?.defName?.GetHashCode() ?? 0)));
+						Once.Id("hediff-giver", hediff?.def?.defName));
 				}
 			}
 		}
@@ -543,7 +519,7 @@ namespace BreakTimer
 				{
 					Log.WarningOnce(
 						$"[BreakTimer] MentalFit scan failed for {fit?.defName ?? "?"}: {ex.Message}",
-						unchecked((int)0xB12D7300 ^ (fit?.defName?.GetHashCode() ?? 0)));
+						Once.Id("mental-fit", fit?.defName));
 				}
 			}
 		}
@@ -555,12 +531,9 @@ namespace BreakTimer
 			return hours.ToString() + "h";
 		}
 
-		/// <summary>
-		/// Returns the highest <see cref="MentalBreakIntensity"/> the pawn currently
-		/// qualifies for purely off <c>CurMood</c> vs the per-tier thresholds. Mirrors
-		/// <c>MentalBreaker.CurrentDesiredMoodBreakIntensity</c>'s tiering, minus the
-		/// 2000-tick dwell requirement (which is too coarse for a snapshot tooltip).
-		/// </summary>
+		// Highest intensity the pawn qualifies for off CurMood vs the per-tier thresholds.
+		// Mirrors MentalBreaker.CurrentDesiredMoodBreakIntensity, minus the 2000-tick dwell
+		// requirement (too coarse for a snapshot tooltip).
 		static MentalBreakIntensity? HighestEligibleIntensity(MentalBreaker breaker)
 		{
 			float mood = breaker.CurMood;

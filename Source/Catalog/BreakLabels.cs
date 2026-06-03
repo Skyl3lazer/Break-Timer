@@ -4,12 +4,9 @@ using Verse;
 
 namespace BreakTimer
 {
-	/// <summary>
-	/// Process-wide cache of <em>raw</em> friendly labels — the value before any
-	/// contextual disambiguation pass runs. Tooltip code reads these as the starting
-	/// point and then asks <see cref="LabelDisambiguator"/> to add parenthesised
-	/// suffixes only where the visible set actually contains duplicates.
-	/// </summary>
+	// Process-wide cache of raw friendly labels (before any disambiguation). Tooltip code
+	// reads these, then asks LabelDisambiguator to add suffixes only where the visible set
+	// actually has duplicates.
 	public static class BreakLabels
 	{
 		static readonly Dictionary<MentalStateDef, string> stateLabelCap = new();
@@ -80,11 +77,8 @@ namespace BreakTimer
 			return label;
 		}
 
-		/// <summary>
-		/// Pre-formatted "trait: &lt;label&gt;" string used as the source tag in the
-		/// "Other potential states" tooltip section. Keyed by trait def + degree so it's
-		/// stable for the session.
-		/// </summary>
+		// Pre-formatted "trait: <label>" source tag for the "Other potential states"
+		// tooltip section, keyed by trait def + degree.
 		public static string TraitSourceTag(Trait trait)
 		{
 			if (trait?.def is null) return "trait";

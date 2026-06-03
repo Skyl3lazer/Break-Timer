@@ -6,12 +6,9 @@ using Verse;
 
 namespace BreakTimer
 {
-	/// <summary>
-	/// Declarative requirements that gate whether a mental break can happen to a pawn.
-	/// All fields are pulled from the underlying <see cref="MentalBreakDef"/> and its
-	/// <see cref="MentalStateDef"/>, and they mirror what <c>MentalBreakWorker.BreakCanOccur</c>
-	/// and <c>MentalStateWorker.StateCanOccur</c> evaluate at runtime.
-	/// </summary>
+	// Declarative gates on whether a break can happen to a pawn, pulled from the
+	// MentalBreakDef and its MentalStateDef. Mirrors what MentalBreakWorker.BreakCanOccur
+	// and MentalStateWorker.StateCanOccur evaluate at runtime.
 	public sealed class BreakRequirements
 	{
 		public BreakRequirements(MentalBreakDef breakDef)
@@ -78,11 +75,8 @@ namespace BreakTimer
 			return !GetUnmetReasons(pawn).Any();
 		}
 
-		/// <summary>
-		/// Enumerates human-readable reasons that this break's <em>declarative</em>
-		/// requirements would block <paramref name="pawn"/>. Empty if all declarative
-		/// requirements are satisfied.
-		/// </summary>
+		// Human-readable reasons this break's declarative requirements would block the pawn;
+		// empty when all are satisfied.
 		public IEnumerable<string> GetUnmetReasons(Pawn pawn)
 		{
 			if (pawn is null) yield break;

@@ -7,12 +7,9 @@ using Verse.AI;
 
 namespace BreakTimer
 {
-	/// <summary>
-	/// Static reference catalog of every <see cref="MentalBreakDef"/> loaded by the game,
-	/// resolved into rich <see cref="BreakInfo"/> records. Built once at startup (and
-	/// rebuildable on demand) so consumers can do fast lookups by def, defName, intensity,
-	/// category, or pawn eligibility.
-	/// </summary>
+	// Reference catalog of every MentalBreakDef, resolved into BreakInfo records. Built once
+	// at startup (rebuildable on demand) for fast lookups by def, defName, intensity,
+	// category, or pawn eligibility.
 	public static class MentalBreakCatalog
 	{
 		static readonly object buildLock = new();
@@ -41,7 +38,6 @@ namespace BreakTimer
 			get { EnsureBuilt(); return byDefName; }
 		}
 
-		/// <summary>Lookup helper that returns null if the def is not registered.</summary>
 		public static BreakInfo? Get(MentalBreakDef? def)
 		{
 			if (def is null) return null;
@@ -56,7 +52,7 @@ namespace BreakTimer
 			return byDefName.TryGetValue(defName!, out BreakInfo info) ? info : null;
 		}
 
-		/// <summary>Returns the <see cref="BreakInfo"/> whose mental state matches, if any.</summary>
+		// The BreakInfo whose mental state matches, if any.
 		public static BreakInfo? GetForState(MentalStateDef? state)
 		{
 			if (state is null) return null;
@@ -64,13 +60,9 @@ namespace BreakTimer
 			return byState.TryGetValue(state, out BreakInfo info) ? info : null;
 		}
 
-		/// <summary>
-		/// Returns the <see cref="MentalStateInfo"/> for any defined <see cref="MentalStateDef"/>,
-		/// regardless of whether it has a <see cref="MentalBreakDef"/>. This is the lookup
-		/// for "the pawn is in mental state X — what's its duration and label?" cases that
-		/// include hediff-driven states like <c>WanderConfused</c> (Dementia/Alzheimer's),
-		/// trait givers, mental-fit givers, and scripted-incident states.
-		/// </summary>
+		// MentalStateInfo for any MentalStateDef, with or without a MentalBreakDef. Covers the
+		// "pawn is in state X — how long and what's it called?" cases that the break path
+		// doesn't own: hediff-driven states (WanderConfused), trait/mental-fit givers, etc.
 		public static MentalStateInfo? GetStateInfo(MentalStateDef? state)
 		{
 			if (state is null) return null;
@@ -90,11 +82,8 @@ namespace BreakTimer
 			return byCategory.TryGetValue(category, out BreakInfo[] arr) ? arr : Array.Empty<BreakInfo>();
 		}
 
-		/// <summary>
-		/// All breaks whose declarative requirements allow <paramref name="pawn"/>. This is
-		/// the cheap preview filter: use <see cref="PossibleFor"/> for the authoritative
-		/// answer (which also runs worker-specific checks).
-		/// </summary>
+		// Cheap preview filter: breaks whose declarative requirements allow the pawn. Use
+		// PossibleFor for the authoritative answer (it also runs worker-specific checks).
 		public static IEnumerable<BreakInfo> DeclarativelyAllowedFor(Pawn pawn)
 		{
 			if (pawn is null) yield break;
@@ -106,10 +95,7 @@ namespace BreakTimer
 			}
 		}
 
-		/// <summary>
-		/// Authoritative: every break whose worker reports it can happen to <paramref name="pawn"/>
-		/// right now. Suitable for "what could this pawn possibly snap into?" UI.
-		/// </summary>
+		// Authoritative: every break whose worker reports it can happen to the pawn right now.
 		public static IEnumerable<BreakInfo> PossibleFor(Pawn pawn)
 		{
 			if (pawn is null) yield break;
@@ -121,20 +107,16 @@ namespace BreakTimer
 			}
 		}
 
-		/// <summary>
-		/// Returns the active mental break (if any) the pawn is currently in, by matching
-		/// their live <see cref="MentalState"/> back to its owning <see cref="MentalBreakDef"/>.
-		/// </summary>
+		// The break the pawn is currently in, by matching their live MentalState back to its
+		// owning MentalBreakDef.
 		public static BreakInfo? GetActiveFor(Pawn pawn)
 		{
 			MentalState? active = pawn?.MentalState;
 			return active != null ? GetForState(active.def) : null;
 		}
 
-		/// <summary>
-		/// Builds the catalog if it hasn't been built yet. Safe to call multiple times.
-		/// Called automatically from <see cref="BreakTimerMod"/> on game startup.
-		/// </summary>
+		// Builds the catalog if it hasn't been built. Idempotent; called from BreakTimerMod
+		// at startup.
 		public static void EnsureBuilt()
 		{
 			if (built) return;
@@ -146,7 +128,7 @@ namespace BreakTimer
 			}
 		}
 
-		/// <summary>Force a rebuild. Mainly useful for dev reloads.</summary>
+		// Force a rebuild; mainly for dev reloads.
 		public static void Rebuild()
 		{
 			lock (buildLock)

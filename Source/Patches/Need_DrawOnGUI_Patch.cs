@@ -6,11 +6,8 @@ using Verse;
 
 namespace BreakTimer.Patches
 {
-	/// <summary>
-	/// Postfix on <see cref="Need.DrawOnGUI"/> that paints the Break Timer indicator on
-	/// top of the right edge of the Mood need bar. Filtered to the Mood def so other
-	/// need bars (food, rest, ...) aren't touched.
-	/// </summary>
+	// Paints the indicator on the right edge of the Mood need bar. Filtered to the Mood def
+	// so other bars (food, rest, ...) aren't touched.
 	[HarmonyPatch(typeof(Need), nameof(Need.DrawOnGUI))]
 	public static class Need_DrawOnGUI_Patch
 	{
@@ -33,7 +30,7 @@ namespace BreakTimer.Patches
 			{
 				Log.ErrorOnce(
 					$"[BreakTimer] Need.DrawOnGUI postfix failed: {ex.Message}",
-					unchecked((int)0xB12D31C9));
+					Once.Id("draw-mood"));
 			}
 		}
 	}

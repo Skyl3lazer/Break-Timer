@@ -5,12 +5,9 @@ using System.Text;
 
 namespace BreakTimer
 {
-	/// <summary>
-	/// Stateless helper that turns a list of items sharing the same friendly label into
-	/// a parallel list of unique display labels by appending a parenthesised fragment
-	/// derived from each item's defName. Stripping happens at <em>word boundaries</em>
-	/// (PascalCase + <c>_</c> / <c>-</c> separators)
-	/// </summary>
+	// Turns items that share a friendly label into unique display labels by appending a
+	// parenthesised fragment of each item's defName, split at word boundaries (PascalCase
+	// plus _ / - separators).
 	public static class LabelDisambiguator
 	{
 		public static List<string> Resolve(IList<(string label, string defName)> items)
@@ -31,9 +28,7 @@ namespace BreakTimer
 					continue;
 				}
 
-				// All members share the same defName (e.g. the same trait giver listed
-				// twice from two sources). Nothing useful to disambiguate with — just
-				// reuse the base label everywhere.
+				// Same defName from two sources: nothing to disambiguate with, reuse the base.
 				if (members.Select(m => m.defName).Distinct(StringComparer.Ordinal).Count() == 1)
 				{
 					foreach (var m in members) resolved[m.idx] = group.Key;
@@ -49,10 +44,8 @@ namespace BreakTimer
 			return resolved.ToList();
 		}
 
-		/// <summary>
-		/// Lower-level entry point: given a shared base label and the defNames of the
-		/// defs colliding on it, returns one label per defName in input order.
-		/// </summary>
+		// Given a shared base label and the defNames colliding on it, returns one label per
+		// defName in input order.
 		public static List<string> Disambiguate(string baseLabel, IList<string> defNames)
 		{
 			var result = new List<string>(defNames?.Count ?? 0);
@@ -84,8 +77,7 @@ namespace BreakTimer
 					}
 					else
 					{
-						// Two defs that completely overlap word-wise; fall back to the
-						// raw defName so the user can still tell them apart.
+						// Two defs that overlap word-for-word; fall back to the full defName.
 						result.Add(baseLabel + " (" + JoinWords(words) + ")");
 					}
 				}
@@ -98,11 +90,8 @@ namespace BreakTimer
 			return result;
 		}
 
-		/// <summary>
-		/// Splits a defName fragment into its constituent words. PascalCase boundaries
-		/// (lowercase-or-digit → uppercase) and <c>_</c> / <c>-</c> / space separators
-		/// all start a new word. Acronyms stay glued together (<c>"VFEC"</c> → one word).
-		/// </summary>
+		// Splits a defName into words at PascalCase boundaries (lowercase-or-digit → upper)
+		// and _ / - / space separators. Acronyms stay glued together ("VFEC" → one word).
 		static List<string> SplitWords(string s)
 		{
 			var words = new List<string>();

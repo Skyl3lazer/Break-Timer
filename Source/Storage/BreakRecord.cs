@@ -6,18 +6,10 @@ using Verse.AI;
 
 namespace BreakTimer
 {
-	/// <summary>
-	/// Persisted record of an in-progress mental break on a pawn. Created when
-	/// <c>MentalStateHandler.TryStartMentalState</c> reports success and cleared when the
-	/// matching <c>MentalState.RecoverFromState</c> fires.
-	/// </summary>
-	/// <remarks>
-	/// We persist the absolute tick the break began even though <see cref="MentalState.Age"/>
-	/// also tracks elapsed time, because: (1) it lets us survive a save where the patch was
-	/// absent on the prior session (we backfill from <c>TicksGame - state.age</c>),
-	/// (2) downstream UI can format absolute timestamps ("started yesterday at 06:00"),
-	/// and (3) keeping the metadata here decouples the timer from MentalState internals.
-	/// </remarks>
+	// Persisted record of an in-progress break, created on a successful TryStartMentalState
+	// and cleared on the matching RecoverFromState. We store the absolute start tick (not
+	// just MentalState.Age) so it survives saves made without the patch, lets the UI show
+	// absolute timestamps, and decouples the timer from MentalState internals.
 	public sealed class ActiveBreakRecord : IExposable
 	{
 		public MentalStateDef? stateDef;
@@ -66,10 +58,8 @@ namespace BreakTimer
 		}
 	}
 
-	/// <summary>
-	/// Persisted snapshot of a break that has concluded. Held in the per-pawn history
-	/// ring buffer for stats / UI ("last 5 breaks") without paying for unlimited growth.
-	/// </summary>
+	// Snapshot of a concluded break, held in the per-pawn history ring buffer ("last 5
+	// breaks") without unbounded growth.
 	public sealed class CompletedBreakRecord : IExposable
 	{
 		public MentalStateDef? stateDef;
@@ -107,11 +97,8 @@ namespace BreakTimer
 		}
 	}
 
-	/// <summary>
-	/// Bounded per-pawn ring buffer of completed breaks. Lives behind a wrapper so the
-	/// containing <c>Dictionary&lt;Pawn, PawnBreakHistory&gt;</c> can go through
-	/// <see cref="Scribe_Collections"/> with <see cref="LookMode.Deep"/> on values.
-	/// </summary>
+	// Bounded per-pawn ring buffer of completed breaks. Wrapped so the containing
+	// Dictionary<Pawn, PawnBreakHistory> can scribe its values with LookMode.Deep.
 	public sealed class PawnBreakHistory : IExposable
 	{
 		public List<CompletedBreakRecord> records = new();

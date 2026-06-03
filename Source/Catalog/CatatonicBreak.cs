@@ -4,12 +4,9 @@ using Verse.AI;
 
 namespace BreakTimer
 {
-	/// <summary>
-	/// Shared lookups for the Catatonic break, which is hediff-driven (no MentalState):
-	/// its worker applies the CatatonicBreakdown hediff, whose HediffComp_Disappears
-	/// timer carries the remaining duration. Centralised so the indicator and the
-	/// start/end patches agree on detection and time-remaining math.
-	/// </summary>
+	// The Catatonic break is hediff-driven: it has no MentalState, its worker applies the
+	// CatatonicBreakdown hediff, and that hediff's HediffComp_Disappears timer carries the
+	// remaining duration. Centralised so the indicator and start/end patches agree.
 	public static class CatatonicBreak
 	{
 		public const string HediffDefName = "CatatonicBreakdown";
@@ -33,7 +30,7 @@ namespace BreakTimer
 
 		public static MentalBreakDef? BreakDef => MentalBreakCatalog.Get(BreakDefName)?.Def;
 
-		/// <summary>The active CatatonicBreakdown hediff on the pawn, or null.</summary>
+		// The active CatatonicBreakdown hediff on the pawn, or null.
 		public static Hediff? FindOn(Pawn? pawn)
 		{
 			HediffDef? def = HediffDef;
@@ -41,13 +38,10 @@ namespace BreakTimer
 			return pawn.health.hediffSet.GetFirstHediffOfDef(def);
 		}
 
-		/// <summary>
-		/// Remaining duration as a min/max window rather than the exact countdown. The
-		/// breakdown lasts a value rolled from <c>disappearsAfterTicks</c> (e.g. 100k–300k);
-		/// revealing the rolled total would be unfair, so we report the configured range
-		/// minus elapsed time, mirroring how mood breaks show a min/max remaining. Returns
-		/// a zero window when no timed comp is present.
-		/// </summary>
+		// Remaining as a min/max window, not the exact countdown: the breakdown lasts a value
+		// rolled from disappearsAfterTicks (e.g. 100k-300k), and revealing the rolled total
+		// would be unfair, so we report the configured range minus elapsed. Zero window if no
+		// timed comp is present.
 		public static BreakDurationRemaining GetRemaining(Hediff hediff)
 		{
 			HediffComp_Disappears? comp = (hediff as HediffWithComps)?.TryGetComp<HediffComp_Disappears>();

@@ -5,12 +5,8 @@ using Verse.AI;
 
 namespace BreakTimer.Patches
 {
-	/// <summary>
-	/// Postfix on <see cref="MentalStateHandler.TryStartMentalState"/> that records the
-	/// exact tick a mental break begins on a pawn. Skipped when the call returned false
-	/// (state didn't actually start) or when no <see cref="BreakTimerGameComponent"/> is
-	/// available yet (e.g., during very early init before <c>Current.Game</c> exists).
-	/// </summary>
+	// Records the tick a break begins. Skipped when the state didn't start, or before the
+	// BreakTimerGameComponent exists (very early init, before Current.Game).
 	[HarmonyPatch(typeof(MentalStateHandler), nameof(MentalStateHandler.TryStartMentalState))]
 	public static class MentalStateHandler_TryStartMentalState_Patch
 	{
@@ -21,9 +17,8 @@ namespace BreakTimer.Patches
 		{
 			if (!__result) return;
 
-			// Always punch the tooltip cache, even if the BreakTimerGameComponent isn't
-			// ready yet — otherwise the hover string can lag a state transition by up
-			// to TooltipTextCacheTtlSeconds.
+			// Invalidate even if the component isn't ready yet, or the hover string lags
+			// the transition by up to the cache TTL.
 			BreakIndicator.InvalidateTooltipCache();
 
 			BreakTimerGameComponent? store = BreakTimerGameComponent.Instance;

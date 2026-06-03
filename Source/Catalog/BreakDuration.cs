@@ -6,20 +6,10 @@ using Verse.AI;
 
 namespace BreakTimer
 {
-	/// <summary>
-	/// Strongly-typed, immutable view of the recovery profile for a mental break.
-	/// Pulls all numeric durations off the underlying <see cref="MentalStateDef"/>
-	/// so consumers don't need to reach into Def fields directly, and computes
-	/// best-effort min/max/expected durations in both ticks and game days.
-	/// </summary>
-	/// <remarks>
-	/// RimWorld's mental state recovery loop ticks every <see cref="MentalState.MentalStateTickInterval"/>
-	/// ticks. Once <see cref="MentalStateDef.minTicksBeforeRecovery"/> has elapsed, recovery is
-	/// rolled as an MTB event using <see cref="MentalStateDef.recoveryMtbDays"/> with the
-	/// one-day reference period (<see cref="GenDate.TicksPerDay"/> = 60000). A hard cap
-	/// is applied at <see cref="MentalStateDef.maxTicksBeforeRecovery"/>, and an active
-	/// state may shorten via <see cref="MentalState.forceRecoverAfterTicks"/>.
-	/// </remarks>
+	// Immutable view of a mental state's recovery profile, computing min/expected/max
+	// durations in ticks and days. The game's recovery: once minTicksBeforeRecovery has
+	// elapsed, recovery is rolled as an MTB event off recoveryMtbDays; a hard cap applies
+	// at maxTicksBeforeRecovery, and an active state may shorten via forceRecoverAfterTicks.
 	public sealed class BreakDuration
 	{
 		public const float DefaultRecoveryMtbDays = 1f;
@@ -56,14 +46,12 @@ namespace BreakTimer
 		public float MaxDays => TicksToDays(MaxTicks);
 		public float ExpectedDays => TicksToDays(ExpectedTicks);
 
-		/// <summary>True when the MTB recovery roll is disabled and only the hard cap ends the state.</summary>
+		// True when the MTB recovery roll is disabled and only the hard cap ends the state.
 		public bool RecoveryIsDeterministic => RecoveryMtbDays <= 0f;
 
-		/// <summary>
-		/// Expected total state duration (in ticks) for a freshly-started break, assuming
-		/// no external recovery (sleep, downed, etc.) interrupts it. This is the MTB
-		/// average shifted by the eligibility window and clamped by the hard cap.
-		/// </summary>
+		// Expected total ticks for a fresh break, assuming no external recovery (sleep,
+		// downed, ...) interrupts it: the MTB average shifted by the eligibility window
+		// and clamped to the hard cap.
 		static int ComputeExpectedTicks(int minTicks, int maxTicks, float recoveryMtbDays)
 		{
 			if (recoveryMtbDays <= 0f)
@@ -75,11 +63,8 @@ namespace BreakTimer
 			return (int)expected;
 		}
 
-		/// <summary>
-		/// For an in-progress mental state, returns (min/expected/max) remaining ticks
-		/// honoring its current <see cref="MentalState.Age"/> and
-		/// <see cref="MentalState.forceRecoverAfterTicks"/> override.
-		/// </summary>
+		// For an in-progress state, returns min/expected/max remaining ticks honoring its
+		// current Age and any forceRecoverAfterTicks override.
 		public BreakDurationRemaining GetRemaining(MentalState active)
 		{
 			if (active is null) throw new ArgumentNullException(nameof(active));

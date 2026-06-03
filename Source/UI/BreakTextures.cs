@@ -3,10 +3,7 @@ using Verse;
 
 namespace BreakTimer
 {
-	/// <summary>
-	/// Cached textures for the Break Timer UI. Loaded once via
-	/// <c>[StaticConstructorOnStartup]</c> so we never look them up per frame.
-	/// </summary>
+	// Loaded once at startup so we never look them up per frame.
 	[StaticConstructorOnStartup]
 	public static class BreakTextures
 	{

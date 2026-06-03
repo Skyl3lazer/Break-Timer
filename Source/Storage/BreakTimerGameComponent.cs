@@ -7,12 +7,9 @@ using Verse.AI;
 
 namespace BreakTimer
 {
-	/// <summary>
-	/// Per-save store of currently-active mental breaks and a short per-pawn history of
-	/// recent ones. Created automatically by RimWorld whenever a game is loaded or started
-	/// (any subclass of <see cref="GameComponent"/> with a <c>(Game)</c> constructor is
-	/// auto-discovered), so no def or About.xml entry is required.
-	/// </summary>
+	// Per-save store of active mental breaks plus a short per-pawn history. RimWorld
+	// auto-discovers any GameComponent with a (Game) constructor, so no def or About.xml
+	// entry is needed.
 	public sealed class BreakTimerGameComponent : GameComponent
 	{
 		public const int HistoryPerPawn = 5;
@@ -45,10 +42,7 @@ namespace BreakTimer
 				: (IReadOnlyList<CompletedBreakRecord>)Array.Empty<CompletedBreakRecord>();
 		}
 
-		/// <summary>
-		/// Called by the start-state Harmony patch once a new <see cref="MentalState"/>
-		/// has been successfully attached to a pawn.
-		/// </summary>
+		// Called by the start-state patch once a new MentalState is attached to a pawn.
 		public void OnBreakStarted(Pawn pawn, MentalState state, string? reason)
 		{
 			if (pawn is null || state?.def is null) return;
@@ -77,11 +71,8 @@ namespace BreakTimer
 				Log.Message($"[BreakTimer] Start: {pawn.LabelShort} entered {stateDef.defName} at tick {startTick} (reason: {reason ?? "n/a"}).");
 		}
 
-		/// <summary>
-		/// Records the start of a break that has no <see cref="MentalState"/> (its worker
-		/// applies a hediff instead, e.g. Catatonic). Mirrors <see cref="OnBreakStarted"/>
-		/// but keys off the <see cref="MentalBreakDef"/> since there's no live state.
-		/// </summary>
+		// Records a break that has no MentalState (its worker applies a hediff, e.g.
+		// Catatonic). Mirrors OnBreakStarted but keys off the MentalBreakDef.
 		public void OnHediffBreakStarted(Pawn pawn, MentalBreakDef? breakDef, string? reason, bool causedByMood)
 		{
 			if (pawn is null || breakDef is null) return;
@@ -106,10 +97,7 @@ namespace BreakTimer
 				Log.Message($"[BreakTimer] Start: {pawn.LabelShort} entered {breakDef.defName} (hediff break) at tick {startTick} (reason: {reason ?? "n/a"}).");
 		}
 
-		/// <summary>
-		/// Called by the recovery Harmony patch when a <see cref="MentalState"/> ends.
-		/// Archives the active record into history.
-		/// </summary>
+		// Called by the recovery patch when a MentalState ends; archives the active record.
 		public void OnBreakEnded(Pawn pawn, MentalState state)
 		{
 			if (pawn is null) return;
@@ -123,11 +111,9 @@ namespace BreakTimer
 				Log.Message($"[BreakTimer] End: {pawn.LabelShort} recovered from {rec.stateDef?.defName ?? "?"} after {endTick - rec.startTick} ticks.");
 		}
 
-		/// <summary>
-		/// Ends a hediff-driven break (e.g. Catatonic) when its hediff is removed. Only
-		/// archives when the active record matches <paramref name="breakDef"/> so an
-		/// unrelated record isn't clobbered by an incidental hediff removal.
-		/// </summary>
+		// Ends a hediff-driven break (e.g. Catatonic) when its hediff is removed. Only archives
+		// when the active record matches breakDef, so an incidental hediff removal doesn't
+		// clobber an unrelated record.
 		public void OnHediffBreakEnded(Pawn pawn, MentalBreakDef? breakDef)
 		{
 			if (pawn is null) return;
@@ -153,12 +139,9 @@ namespace BreakTimer
 			bucket.Add(new CompletedBreakRecord(rec, endTick), HistoryPerPawn);
 		}
 
-		/// <summary>
-		/// After a save loads, scan every pawn that's already in a mental state. For any
-		/// without an <see cref="ActiveBreakRecord"/> (e.g., saved before this mod was
-		/// installed), synthesize one using <see cref="MentalState.Age"/> as a stand-in
-		/// for the original start tick. Idempotent.
-		/// </summary>
+		// After a save loads, scan every pawn already in a mental state and synthesize a
+		// record for any without one (e.g. saved before this mod was installed), using
+		// MentalState.Age as a stand-in for the start tick. Idempotent.
 		public override void LoadedGame() => BackfillFromWorld();
 
 		public override void FinalizeInit() => BackfillFromWorld();

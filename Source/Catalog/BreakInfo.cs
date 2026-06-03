@@ -8,11 +8,8 @@ using Verse.AI;
 
 namespace BreakTimer
 {
-	/// <summary>
-	/// All cached, derived metadata for a single <see cref="MentalBreakDef"/>: identity,
-	/// intensity, commonality, requirements and recovery profile. Designed to be
-	/// constructed once at startup and queried freely thereafter.
-	/// </summary>
+	// Cached, derived metadata for a single MentalBreakDef: identity, intensity, commonality,
+	// requirements, recovery profile. Built once at startup and queried freely thereafter.
 	public sealed class BreakInfo
 	{
 		public BreakInfo(MentalBreakDef def)
@@ -49,26 +46,16 @@ namespace BreakTimer
 
 		public string DefName => Def.defName;
 
-		/// <summary>
-		/// Friendly, lowercase label. Resolved once at catalog-build time via
-		/// <see cref="BreakLabels.ForBreak"/>, which falls back from
-		/// <see cref="MentalBreakDef.label"/> to <see cref="MentalStateDef.label"/> and
-		/// finally to the def name. Note this is the <em>raw</em> label — collision
-		/// disambiguation is applied contextually by <see cref="LabelDisambiguator"/> at
-		/// render time, only against the items currently visible in a given tooltip.
-		/// Use <see cref="LabelCap"/> for UI display.
-		/// </summary>
+		// Raw lowercase label (use LabelCap for display). Collision disambiguation is applied
+		// contextually at render time, against only the items visible in a given tooltip.
 		public string Label { get; }
 
 		public string LabelCap { get; }
 		public MentalBreakWorker Worker => Def.Worker;
 
-		/// <summary>
-		/// Authoritative "can this break happen to this pawn right now?" check. Delegates
-		/// to <see cref="MentalBreakWorker.BreakCanOccur"/>, which covers both the
-		/// declarative requirements <see cref="BreakRequirements"/> tracks and any
-		/// worker-specific runtime gating (food on hand, exit reachable, ...).
-		/// </summary>
+		// Authoritative "can this break happen to this pawn now?" — delegates to the worker,
+		// which covers both BreakRequirements and worker-specific gating (food on hand, exit
+		// reachable, ...).
 		public bool CanOccurFor(Pawn pawn)
 		{
 			if (pawn is null) return false;
@@ -77,12 +64,12 @@ namespace BreakTimer
 			{
 				Log.WarningOnce(
 					$"[BreakTimer] BreakCanOccur threw for {DefName} on {pawn.LabelShort}: {ex.Message}",
-					HashCode("CanOccurFor", DefName));
+					Once.Id("CanOccurFor", DefName));
 				return false;
 			}
 		}
 
-		/// <summary>Mirror of <see cref="MentalBreakWorker.CommonalityFor"/> for ranking.</summary>
+		// Mirror of MentalBreakWorker.CommonalityFor for ranking.
 		public float CommonalityFor(Pawn pawn, bool moodCaused = false)
 		{
 			if (pawn is null) return 0f;
@@ -91,12 +78,12 @@ namespace BreakTimer
 			{
 				Log.WarningOnce(
 					$"[BreakTimer] CommonalityFor threw for {DefName} on {pawn.LabelShort}: {ex.Message}",
-					HashCode("CommonalityFor", DefName));
+					Once.Id("CommonalityFor", DefName));
 				return 0f;
 			}
 		}
 
-		// Unused, but informationally useful if I want to use it later.
+		// Unused, but kept for potential future use.
 		public IEnumerable<string> GetUnmetReasons(Pawn pawn)
 		{
 			if (pawn is null) yield break;
@@ -110,8 +97,5 @@ namespace BreakTimer
 
 		public override string ToString()
 			=> $"BreakInfo({DefName}, {Intensity}, {(MentalState?.defName ?? "no state")})";
-
-		static int HashCode(string kind, string defName)
-			=> unchecked(kind.GetHashCode() * 397 ^ defName.GetHashCode());
 	}
 }
