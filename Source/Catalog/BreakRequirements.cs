@@ -79,41 +79,41 @@ namespace BreakTimer
             if (pawn is null) yield break;
 
             if (RequiredTrait != null && (pawn.story == null || !pawn.story.traits.HasTrait(RequiredTrait)))
-                yield return $"Requires trait: {RequiredTrait.LabelCap}";
+                yield return "BreakTimer.ReqTrait".Translate(RequiredTrait.LabelCap.ToString());
 
             if (RequiredGene != null && (pawn.genes == null || !pawn.genes.HasActiveGene(RequiredGene)))
-                yield return $"Requires gene: {RequiredGene.LabelCap}";
+                yield return "BreakTimer.ReqGene".Translate(RequiredGene.LabelCap.ToString());
 
             if (RequiredPrecept != null && (pawn.Ideo == null || !pawn.Ideo.HasPrecept(RequiredPrecept)))
-                yield return $"Requires precept: {RequiredPrecept.LabelCap}";
+                yield return "BreakTimer.ReqPrecept".Translate(RequiredPrecept.LabelCap.ToString());
 
             if (AnomalousBreak && !ModsConfig.AnomalyActive)
-                yield return "Requires Anomaly DLC";
+                yield return "BreakTimer.ReqAnomaly".Translate();
 
             if (ColonistsOnly && pawn.Faction != Faction.OfPlayer)
-                yield return "Colonists only";
+                yield return "BreakTimer.ReqColonistsOnly".Translate();
 
             if (SlavesOnly && !pawn.IsSlaveOfColony)
-                yield return "Slaves only";
+                yield return "BreakTimer.ReqSlavesOnly".Translate();
 
             if (!PrisonersCanDo && pawn.IsPrisoner)
-                yield return "Prisoners cannot do this break";
+                yield return "BreakTimer.ReqNoPrisoners".Translate();
 
             if (!SlavesCanDo && pawn.IsSlave)
-                yield return "Slaves cannot do this break";
+                yield return "BreakTimer.ReqNoSlaves".Translate();
 
             if (!QuestLodgersCanDo && pawn.IsQuestLodger())
-                yield return "Quest lodgers cannot do this break";
+                yield return "BreakTimer.ReqNoQuestLodgers".Translate();
 
             if (!DownedCanDo && pawn.Downed)
-                yield return "Pawn is downed";
+                yield return "BreakTimer.ReqDowned".Translate();
 
             if (RequiredCapacities.Count > 0 && pawn.health?.capacities != null)
             {
                 foreach (PawnCapacityDef cap in RequiredCapacities)
                 {
                     if (!pawn.health.capacities.CapableOf(cap))
-                        yield return $"Requires capacity: {cap.LabelCap}";
+                        yield return "BreakTimer.ReqCapacity".Translate(cap.LabelCap.ToString());
                 }
             }
 
@@ -121,7 +121,7 @@ namespace BreakTimer
             {
                 var heldMap = pawn.MapHeld;
                 if (heldMap == null || !heldMap.Tile.Valid || !LayerWhitelist.Contains(heldMap.Tile.LayerDef))
-                    yield return "Not allowed on this planet layer";
+                    yield return "BreakTimer.ReqLayer".Translate();
             }
         }
     }

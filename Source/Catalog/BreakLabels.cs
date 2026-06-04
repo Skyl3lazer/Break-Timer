@@ -81,11 +81,11 @@ namespace BreakTimer
         // tooltip section, keyed by trait def + degree.
         public static string TraitSourceTag(Trait trait)
         {
-            if (trait?.def is null) return "trait";
+            if (trait?.def is null) return "BreakTimer.SourceTraitFallback".Translate();
             TraitKey key = new(trait.def, trait.Degree);
             if (traitSourceText.TryGetValue(key, out string cached)) return cached;
 
-            string built = "trait: " + ForTrait(trait);
+            string built = "BreakTimer.SourceTrait".Translate(ForTrait(trait));
             traitSourceText[key] = built;
             return built;
         }

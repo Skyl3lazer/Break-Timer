@@ -92,7 +92,7 @@ namespace BreakTimer
                 yield return r;
 
             if (Requirements.DeclarativelyAllowsPawn(pawn) && !CanOccurFor(pawn))
-                yield return "Worker-specific prerequisites not met";
+                yield return "BreakTimer.ReqWorkerPrereqs".Translate();
         }
 
         public override string ToString()

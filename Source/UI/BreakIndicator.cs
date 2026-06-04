@@ -71,7 +71,7 @@ namespace BreakTimer
 
         static string GetCachedTooltip(Pawn? pawn)
         {
-            if (pawn is null) return "(no pawn selected)";
+            if (pawn is null) return "BreakTimer.NoPawnSelected".Translate();
 
             int id = pawn.thingIDNumber;
             MentalStateDef? activeStateDef = pawn.MentalState?.def;
@@ -105,7 +105,7 @@ namespace BreakTimer
 
         static string BuildTooltip(Pawn? pawn)
         {
-            if (pawn is null) return "(no pawn selected)";
+            if (pawn is null) return "BreakTimer.NoPawnSelected".Translate();
 
             try
             {
@@ -123,7 +123,7 @@ namespace BreakTimer
                 Log.ErrorOnce(
                     $"[BreakTimer] Tooltip build failed for {pawn.LabelShort}: {ex}",
                     Once.Id("tooltip-build"));
-                return "Break Timer: error building tooltip (see log).";
+                return "BreakTimer.TooltipError".Translate();
             }
         }
 
@@ -131,7 +131,7 @@ namespace BreakTimer
         {
             var sb = new StringBuilder();
 
-            sb.Append("Break: ").AppendLine(BreakLabels.ForState(state.def));
+            sb.AppendLine("BreakTimer.Break".Translate(BreakLabels.ForState(state.def)));
 
             ActiveBreakRecord? rec = BreakTimerGameComponent.Instance?.GetActive(pawn);
             int nowTick = Find.TickManager.TicksGame;
@@ -139,7 +139,7 @@ namespace BreakTimer
 
             Vector2 longLat = LongLatFor(pawn);
             long absStartTick = ToAbsTick(startTick);
-            AppendDateLine(sb, "Started", absStartTick, longLat);
+            AppendDateLine(sb, "BreakTimer.Started".Translate(),absStartTick, longLat);
 
             // Mood-driven breaks resolve through BreakInfo; everything else (hediff/trait
             // givers like WanderConfused) falls back to MentalStateInfo for a duration.
@@ -174,27 +174,27 @@ namespace BreakTimer
             int maxHours = TicksToHoursCeil(maxTicks);
 
             if (unboundedMax)
-                sb.Append("Remaining: ").Append(minHours).AppendLine("h+");
+                sb.AppendLine("BreakTimer.RemainingPlus".Translate(minHours));
             else if (minHours == maxHours)
-                sb.Append("Remaining: ").Append(minHours).AppendLine("h");
+                sb.AppendLine("BreakTimer.Remaining".Translate(minHours));
             else
-                sb.Append("Remaining: ").Append(minHours).Append("h - ").Append(maxHours).AppendLine("h");
+                sb.AppendLine("BreakTimer.RemainingRange".Translate(minHours, maxHours));
 
             if (unboundedMax)
             {
-                sb.AppendLine("Ends after:");
+                sb.AppendLine("BreakTimer.EndsAfter".Translate());
                 sb.Append("  ").AppendLine(GenDate.DateFullStringWithHourAt(minEnd, longLat));
-                sb.AppendLine("  (no fixed end)");
+                sb.Append("  ").AppendLine("BreakTimer.NoFixedEnd".Translate());
             }
             else if (minTicks == maxTicks)
             {
-                AppendDateLine(sb, "Ends", maxEnd, longLat);
+                AppendDateLine(sb, "BreakTimer.Ends".Translate(), maxEnd, longLat);
             }
             else
             {
-                sb.AppendLine("Ends between:");
-                sb.Append("  Earliest: ").AppendLine(GenDate.DateFullStringWithHourAt(minEnd, longLat));
-                sb.Append("  Latest:   ").AppendLine(GenDate.DateFullStringWithHourAt(maxEnd, longLat));
+                sb.AppendLine("BreakTimer.EndsBetween".Translate());
+                sb.Append("  ").AppendLine("BreakTimer.Earliest".Translate(GenDate.DateFullStringWithHourAt(minEnd, longLat)));
+                sb.Append("  ").AppendLine("BreakTimer.Latest".Translate(GenDate.DateFullStringWithHourAt(maxEnd, longLat)));
             }
         }
 
@@ -207,13 +207,13 @@ namespace BreakTimer
             string label = BreakTimerDefOf.Catatonic != null
                 ? BreakLabels.ForBreakCap(BreakTimerDefOf.Catatonic)
                 : hediff.LabelCap;
-            sb.Append("Break: ").AppendLine(label);
+            sb.AppendLine("BreakTimer.Break".Translate(label));
 
             int nowTick = Find.TickManager.TicksGame;
             ActiveBreakRecord? rec = BreakTimerGameComponent.Instance?.GetActive(pawn);
             int startTick = rec?.startTick ?? (nowTick - Mathf.Max(0, hediff.ageTicks));
             Vector2 longLat = LongLatFor(pawn);
-            AppendDateLine(sb, "Started", ToAbsTick(startTick), longLat);
+            AppendDateLine(sb, "BreakTimer.Started".Translate(),ToAbsTick(startTick), longLat);
 
             BreakDurationRemaining remaining = CatatonicBreak.GetRemaining(hediff);
             if (remaining.MaxTicks > 0)
@@ -262,7 +262,7 @@ namespace BreakTimer
             string otherSection = RenderOtherTriggers(others, labels, moodCount);
 
             if (moodSection.Length == 0 && otherSection.Length == 0)
-                return "Possible mental breaks:\n No possible breaks!";
+                return "BreakTimer.PossibleBreaksNonePossible".Translate();
 
             if (moodSection.Length > 0 && otherSection.Length > 0)
                 return moodSection + "\n\n" + otherSection;
@@ -292,7 +292,7 @@ namespace BreakTimer
         {
             MentalBreaker? breaker = pawn.mindState?.mentalBreaker;
             if (breaker == null) return MoodTier.Hidden;
-            if (breaker.Blocked) return MoodTier.WithMessage("Possible mental breaks:\n Breaks are currently blocked!");
+            if (breaker.Blocked) return MoodTier.WithMessage("BreakTimer.PossibleBreaksBlocked".Translate());
             if (!breaker.CanDoRandomMentalBreaks) return MoodTier.Hidden;
 
             MentalBreakIntensity? eligible = HighestEligibleIntensity(breaker);
@@ -341,7 +341,7 @@ namespace BreakTimer
             if (tier.Entries == null || tier.Intensity is null) return string.Empty;
 
             if (tier.Entries.Count == 0)
-                return $"Possible mental breaks ({tier.Intensity.Value}):\n No currently eligible breaks!";
+                return "BreakTimer.PossibleBreaksNoneEligible".Translate(tier.Intensity.Value.ToString());
 
             float total = 0f;
             foreach (var e in tier.Entries) total += e.weight;
@@ -351,12 +351,12 @@ namespace BreakTimer
                 .OrderByDescending(t => t.weight);
 
             var sb = new StringBuilder();
-            sb.Append("Possible mental breaks (").Append(tier.Intensity.Value).AppendLine("):");
+            sb.AppendLine("BreakTimer.PossibleBreaksHeader".Translate(tier.Intensity.Value.ToString()));
             foreach (var (info, weight, idx) in ordered)
             {
                 float pct = total > 0f ? weight / total : 0f;
                 string label = labels[labelOffset + idx];
-                if (info.Requirements.AnomalousBreak) label += " (anomaly)";
+                if (info.Requirements.AnomalousBreak) label += " " + "BreakTimer.AnomalySuffix".Translate();
                 sb.Append(" ").Append(label).Append(" - ").AppendLine(pct.ToStringPercent("0"));
             }
 
@@ -384,16 +384,12 @@ namespace BreakTimer
             if (extras == null || extras.Count == 0) return string.Empty;
 
             var sb = new StringBuilder();
-            sb.AppendLine("Other potential states:");
+            sb.AppendLine("BreakTimer.OtherStatesHeader".Translate());
             for (int i = 0; i < extras.Count; i++)
             {
                 ExtraTrigger e = extras[i];
-                sb.Append(" ")
-                    .Append(labels[labelOffset + i])
-                    .Append(" (")
-                    .Append(e.Source)
-                    .Append(") - every ~")
-                    .AppendLine(FormatMtb(e.MtbDays));
+                sb.Append(" ").AppendLine(
+                    "BreakTimer.OtherStatesEntry".Translate(labels[labelOffset + i], e.Source, FormatMtb(e.MtbDays)));
             }
             return sb.ToString().TrimEnd();
         }
@@ -466,8 +462,8 @@ namespace BreakTimer
 
                     string hediffLabel = hediff.LabelCap;
                     if (string.IsNullOrEmpty(hediffLabel))
-                        hediffLabel = hediff.def?.LabelCap.RawText ?? hediff.def?.defName ?? "hediff";
-                    string sourceTag = "Condition: " + hediffLabel;
+                        hediffLabel = hediff.def?.LabelCap.RawText ?? hediff.def?.defName ?? "BreakTimer.FallbackHediff".Translate().ToString();
+                    string sourceTag = "BreakTimer.SourceCondition".Translate(hediffLabel);
 
                     foreach (MentalStateGiver giver in givers)
                     {

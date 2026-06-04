@@ -1,4 +1,59 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LanguageData>
 
+  <!-- Tooltip header / fallbacks -->
+  <BreakTimer.NoPawnSelected>(no pawn selected)</BreakTimer.NoPawnSelected>
+  <BreakTimer.TooltipError>Break Timer: error building tooltip (see log).</BreakTimer.TooltipError>
+  <!-- {0} = break label -->
+  <BreakTimer.Break>Break: {0}</BreakTimer.Break>
+
+  <!-- Date line labels (a ":" is appended in code, followed by the date on the next line) -->
+  <BreakTimer.Started>Started</BreakTimer.Started>
+  <BreakTimer.Ends>Ends</BreakTimer.Ends>
+
+  <!-- Remaining time. {0}/{1} = whole hours -->
+  <BreakTimer.Remaining>Remaining: {0}h</BreakTimer.Remaining>
+  <BreakTimer.RemainingPlus>Remaining: {0}h+</BreakTimer.RemainingPlus>
+  <BreakTimer.RemainingRange>Remaining: {0}h - {1}h</BreakTimer.RemainingRange>
+
+  <!-- End-time block -->
+  <BreakTimer.EndsAfter>Ends after:</BreakTimer.EndsAfter>
+  <BreakTimer.NoFixedEnd>(no fixed end)</BreakTimer.NoFixedEnd>
+  <BreakTimer.EndsBetween>Ends between:</BreakTimer.EndsBetween>
+  <!-- {0} = formatted date; trailing spaces in Latest align it under Earliest -->
+  <BreakTimer.Earliest>Earliest: {0}</BreakTimer.Earliest>
+  <BreakTimer.Latest>Latest:   {0}</BreakTimer.Latest>
+
+  <!-- Possible-breaks preview. {0} = mood break intensity (Minor/Major/Extreme) -->
+  <BreakTimer.PossibleBreaksNonePossible>Possible mental breaks:\n No possible breaks!</BreakTimer.PossibleBreaksNonePossible>
+  <BreakTimer.PossibleBreaksBlocked>Possible mental breaks:\n Breaks are currently blocked!</BreakTimer.PossibleBreaksBlocked>
+  <BreakTimer.PossibleBreaksNoneEligible>Possible mental breaks ({0}):\n No currently eligible breaks!</BreakTimer.PossibleBreaksNoneEligible>
+  <BreakTimer.PossibleBreaksHeader>Possible mental breaks ({0}):</BreakTimer.PossibleBreaksHeader>
+  <BreakTimer.AnomalySuffix>(anomaly)</BreakTimer.AnomalySuffix>
+
+  <!-- Other potential states section. {0} = label, {1} = source, {2} = mean time between -->
+  <BreakTimer.OtherStatesHeader>Other potential states:</BreakTimer.OtherStatesHeader>
+  <BreakTimer.OtherStatesEntry>{0} ({1}) - every ~{2}</BreakTimer.OtherStatesEntry>
+
+  <!-- Source tags. {0} = trait/condition label -->
+  <BreakTimer.SourceCondition>Condition: {0}</BreakTimer.SourceCondition>
+  <BreakTimer.SourceTrait>trait: {0}</BreakTimer.SourceTrait>
+  <BreakTimer.SourceTraitFallback>trait</BreakTimer.SourceTraitFallback>
+  <BreakTimer.FallbackHediff>hediff</BreakTimer.FallbackHediff>
+
+  <!-- Unmet-requirement reasons. These are not currently used. {0} = trait/gene/precept/capacity label -->
+  <BreakTimer.ReqTrait>Requires trait: {0}</BreakTimer.ReqTrait>
+  <BreakTimer.ReqGene>Requires gene: {0}</BreakTimer.ReqGene>
+  <BreakTimer.ReqPrecept>Requires precept: {0}</BreakTimer.ReqPrecept>
+  <BreakTimer.ReqAnomaly>Requires Anomaly DLC</BreakTimer.ReqAnomaly>
+  <BreakTimer.ReqColonistsOnly>Colonists only</BreakTimer.ReqColonistsOnly>
+  <BreakTimer.ReqSlavesOnly>Slaves only</BreakTimer.ReqSlavesOnly>
+  <BreakTimer.ReqNoPrisoners>Prisoners cannot do this break</BreakTimer.ReqNoPrisoners>
+  <BreakTimer.ReqNoSlaves>Slaves cannot do this break</BreakTimer.ReqNoSlaves>
+  <BreakTimer.ReqNoQuestLodgers>Quest lodgers cannot do this break</BreakTimer.ReqNoQuestLodgers>
+  <BreakTimer.ReqDowned>Pawn is downed</BreakTimer.ReqDowned>
+  <BreakTimer.ReqCapacity>Requires capacity: {0}</BreakTimer.ReqCapacity>
+  <BreakTimer.ReqLayer>Not allowed on this planet layer</BreakTimer.ReqLayer>
+  <BreakTimer.ReqWorkerPrereqs>Worker-specific prerequisites not met</BreakTimer.ReqWorkerPrereqs>
+
 </LanguageData>
