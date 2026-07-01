@@ -6,7 +6,7 @@ using Verse;
 
 namespace BreakTimer.Patches
 {
-    // Paints the indicator on the right edge of the Mood need bar. Filtered to the Mood def
+    // Paints the indicator on the left edge of the Mood need bar. Filtered to the Mood def
     // so other bars (food, rest, ...) aren't touched.
     [HarmonyPatch(typeof(Need), nameof(Need.DrawOnGUI))]
     public static class Need_DrawOnGUI_Patch

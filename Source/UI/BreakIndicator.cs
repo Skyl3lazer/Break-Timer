@@ -10,7 +10,7 @@ using Verse.AI;
 
 namespace BreakTimer
 {
-    // Renders the lightning-bolt indicator at the right edge of the Mood need bar, plus the
+    // Renders the lightning-bolt indicator at the left edge of the Mood need bar, plus the
     // hover tooltip describing the pawn's active break (or possible breaks when there's none).
     public static class BreakIndicator
     {

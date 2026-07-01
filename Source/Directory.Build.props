@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project>
   <PropertyGroup>
-    <Authors>Derek</Authors>
+    <Authors>Skyl3lazer</Authors>
     <RootNamespace>BreakTimer</RootNamespace>
     <AssemblyName>BreakTimer</AssemblyName>
     <OutDir>..\1.6\Assemblies</OutDir>

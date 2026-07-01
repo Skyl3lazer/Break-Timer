@@ -42,10 +42,18 @@ namespace BreakTimer
                 : (IReadOnlyList<CompletedBreakRecord>)Array.Empty<CompletedBreakRecord>();
         }
 
+        // The indicator only ever renders on a Mood need bar the player controls
+        public static bool ShouldTrack(Pawn? pawn)
+        {
+            if (pawn?.needs?.mood is null) return false;
+            return pawn.Faction == Faction.OfPlayer || pawn.IsPrisonerOfColony || pawn.IsSlaveOfColony;
+        }
+
         // Called by the start-state patch once a new MentalState is attached to a pawn.
         public void OnBreakStarted(Pawn pawn, MentalState state, string? reason)
         {
             if (pawn is null || state?.def is null) return;
+            if (!ShouldTrack(pawn)) return;
 
             MentalStateDef stateDef = state.def;
             MentalBreakDef? breakDef = MentalBreakCatalog.GetForState(stateDef)?.Def;
@@ -76,6 +84,7 @@ namespace BreakTimer
         public void OnHediffBreakStarted(Pawn pawn, MentalBreakDef? breakDef, string? reason, bool causedByMood)
         {
             if (pawn is null || breakDef is null) return;
+            if (!ShouldTrack(pawn)) return;
 
             int startTick = Find.TickManager.TicksGame;
             var record = new ActiveBreakRecord(
@@ -155,6 +164,7 @@ namespace BreakTimer
             {
                 MentalState? state = pawn?.MentalState;
                 if (state?.def is null) continue;
+                if (!ShouldTrack(pawn)) continue;
                 if (active.ContainsKey(pawn!)) continue;
 
                 int startTick = Find.TickManager.TicksGame - Mathf.Max(0, state.Age);
