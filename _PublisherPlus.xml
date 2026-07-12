@@ -6,6 +6,8 @@
     <exclude>.editorconfig</exclude>
     <exclude>.git</exclude>
     <exclude>.vscode</exclude>
+    <exclude>About\ModIcon.psd</exclude>
+    <exclude>About\Preview.psd</exclude>
     <exclude>BreakTimer.sln</exclude>
     <exclude>docs</exclude>
     <exclude>Source</exclude>
