@@ -435,3 +435,7 @@ FodyWeavers.xsd
 .cursor
 .claude
 Textures/UI/BreakTimer/LightningBolt.dds
+
+# Design docs (internal — not pushed or shipped)
+/docs/
+/CONTEXT.md

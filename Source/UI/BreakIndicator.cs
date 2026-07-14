@@ -412,19 +412,21 @@ namespace BreakTimer
                     if (data.forcedMentalState != null && data.forcedMentalStateMtbDays > 0f)
                     {
                         MentalStateDef state = data.forcedMentalState;
-                        if (state.Worker == null || state.Worker.StateCanOccur(pawn))
+                        float mtb = ScaleByScarFactor(data.forcedMentalStateMtbDays, pawn, trait, state);
+                        if (mtb > 0f && !float.IsInfinity(mtb) && !float.IsNaN(mtb)
+                            && (state.Worker == null || state.Worker.StateCanOccur(pawn)))
                             sink.Add(new ExtraTrigger(
                                 BreakLabels.ForState(state),
                                 state.defName,
                                 sourceTag,
-                                data.forcedMentalStateMtbDays));
+                                mtb));
                     }
 
                     if (data.randomMentalState != null && data.randomMentalStateMtbDaysMoodCurve != null)
                     {
                         MentalStateDef state = data.randomMentalState;
                         float mood = pawn.needs?.mood?.CurLevelPercentage ?? 1f;
-                        float mtb = data.randomMentalStateMtbDaysMoodCurve.Evaluate(mood);
+                        float mtb = ScaleByScarFactor(data.randomMentalStateMtbDaysMoodCurve.Evaluate(mood), pawn, trait, state);
                         if (mtb > 0f && !float.IsInfinity(mtb) && !float.IsNaN(mtb)
                             && (state.Worker == null || state.Worker.StateCanOccur(pawn)))
                         {
@@ -443,6 +445,18 @@ namespace BreakTimer
                         Once.Id("trait-giver", trait?.def?.defName));
                 }
             }
+        }
+
+        // A Psyche scar tied to this trait throttles the trait's mental-state rolls by the scar's
+        // severity, so a chance factor below 1 lengthens the effective MTB; a zero factor makes the
+        // trigger impossible (infinite MTB) and the caller's guard drops it. Factor 1 (no Psyche, no
+        // scar) leaves the MTB untouched.
+        static float ScaleByScarFactor(float baseMtbDays, Pawn pawn, Trait trait, MentalStateDef state)
+        {
+            if (!PsycheCompat.Available) return baseMtbDays;
+            float factor = PsycheCompat.MentalStateChanceFactor(pawn, trait, state);
+            if (factor <= 0f) return float.PositiveInfinity;
+            return baseMtbDays / factor;
         }
 
         static void CollectHediffTriggers(Pawn pawn, List<ExtraTrigger> sink)

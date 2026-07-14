@@ -14,6 +14,7 @@ namespace BreakTimer
         static BreakTimerMod()
         {
             MentalBreakCatalog.EnsureBuilt();
+            PsycheCompat.Prime();
 
             try
             {
