@@ -43,6 +43,15 @@ namespace BreakTimer
             return byIntensity.TryGetValue(intensity, out BreakInfo[] arr) ? arr : Array.Empty<BreakInfo>();
         }
 
+        public static IReadOnlyList<BreakInfo> All
+        {
+            get
+            {
+                EnsureBuilt();
+                return all;
+            }
+        }
+
         // Builds the catalog if it hasn't been built. Idempotent; called from BreakTimerMod
         // at startup.
         public static void EnsureBuilt()

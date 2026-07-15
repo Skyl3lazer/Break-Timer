@@ -471,28 +471,46 @@ namespace BreakTimer
                 try
                 {
                     HediffStage? stage = hediff.CurStage;
-                    List<MentalStateGiver>? givers = stage?.mentalStateGivers;
-                    if (givers == null || givers.Count == 0) continue;
+                    if (stage == null) continue;
+
+                    List<MentalStateGiver>? givers = stage.mentalStateGivers;
+                    bool hasGivers = givers != null && givers.Count > 0;
+                    bool hasRandomBreak = stage.mentalBreakMtbDays > 0f;
+                    if (!hasGivers && !hasRandomBreak) continue;
 
                     string hediffLabel = hediff.LabelCap;
                     if (string.IsNullOrEmpty(hediffLabel))
                         hediffLabel = hediff.def?.LabelCap.RawText ?? hediff.def?.defName ?? "BreakTimer.FallbackHediff".Translate().ToString();
                     string sourceTag = "BreakTimer.SourceCondition".Translate(hediffLabel);
 
-                    foreach (MentalStateGiver giver in givers)
+                    if (hasGivers)
                     {
-                        if (giver?.mentalState == null) continue;
-                        if (giver.mtbDays <= 0f || float.IsInfinity(giver.mtbDays) || float.IsNaN(giver.mtbDays))
-                            continue;
+                        foreach (MentalStateGiver giver in givers!)
+                        {
+                            if (giver?.mentalState == null) continue;
+                            if (giver.mtbDays <= 0f || float.IsInfinity(giver.mtbDays) || float.IsNaN(giver.mtbDays))
+                                continue;
 
-                        MentalStateDef state = giver.mentalState;
-                        if (state.Worker != null && !state.Worker.StateCanOccur(pawn)) continue;
+                            MentalStateDef state = giver.mentalState;
+                            if (state.Worker != null && !state.Worker.StateCanOccur(pawn)) continue;
 
+                            sink.Add(new ExtraTrigger(
+                                BreakLabels.ForState(state),
+                                state.defName,
+                                sourceTag,
+                                giver.mtbDays));
+                        }
+                    }
+
+                    if (hasRandomBreak
+                        && !float.IsInfinity(stage.mentalBreakMtbDays) && !float.IsNaN(stage.mentalBreakMtbDays)
+                        && AnyRandomBreakEligible(pawn, stage.allowedMentalBreakIntensities))
+                    {
                         sink.Add(new ExtraTrigger(
-                            BreakLabels.ForState(state),
-                            state.defName,
+                            RandomBreakLabel(stage.allowedMentalBreakIntensities),
+                            RandomBreakDefName,
                             sourceTag,
-                            giver.mtbDays));
+                            stage.mentalBreakMtbDays));
                     }
                 }
                 catch (Exception ex)
@@ -502,6 +520,31 @@ namespace BreakTimer
                         Once.Id("hediff-giver", hediff?.def?.defName));
                 }
             }
+        }
+
+        // Synthetic disambiguation key shared by every random-break entry: they carry no
+        // MentalStateDef, collide to the base label with no suffix, and are told apart by source.
+        const string RandomBreakDefName = "BreakTimer_RandomHediffBreak";
+
+        static string RandomBreakLabel(List<MentalBreakIntensity>? allowed)
+        {
+            if (allowed == null || allowed.Count == 0)
+                return "BreakTimer.RandomHediffBreak".Translate();
+            string intensities = string.Join("/", allowed.Select(i => i.ToString().ToLowerInvariant()));
+            return "BreakTimer.RandomHediffBreakIntensity".Translate(intensities);
+        }
+
+        // Whether stage.mentalBreakMtbDays could actually produce a break: mirrors vanilla's
+        // selection filter (BreakCanOccur + intensity + non-zero commonality, moodCaused false).
+        static bool AnyRandomBreakEligible(Pawn pawn, List<MentalBreakIntensity>? allowed)
+        {
+            foreach (BreakInfo info in MentalBreakCatalog.All)
+            {
+                if (allowed != null && !allowed.Contains(info.Intensity)) continue;
+                if (!info.CanOccurFor(pawn)) continue;
+                if (info.CommonalityFor(pawn, moodCaused: false) > 0f) return true;
+            }
+            return false;
         }
 
         static void CollectMentalFitTriggers(Pawn pawn, List<ExtraTrigger> sink)

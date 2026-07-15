@@ -35,6 +35,10 @@
   <BreakTimer.OtherStatesHeader>Other potential states:</BreakTimer.OtherStatesHeader>
   <BreakTimer.OtherStatesEntry>{0} ({1}) - every ~{2}</BreakTimer.OtherStatesEntry>
 
+  <!-- Random break driven by a condition's mentalBreakMtbDays. {0} = allowed intensities (e.g. "minor/major") -->
+  <BreakTimer.RandomHediffBreak>Random mental break</BreakTimer.RandomHediffBreak>
+  <BreakTimer.RandomHediffBreakIntensity>Random {0} mental break</BreakTimer.RandomHediffBreakIntensity>
+
   <!-- Source tags. {0} = trait/condition label -->
   <BreakTimer.SourceCondition>Condition: {0}</BreakTimer.SourceCondition>
   <BreakTimer.SourceTrait>trait: {0}</BreakTimer.SourceTrait>
