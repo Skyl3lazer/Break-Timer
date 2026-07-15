@@ -465,6 +465,9 @@ namespace BreakTimer
             List<Hediff>? hediffs = hediffSet?.hediffs;
             if (hediffs == null || hediffs.Count == 0) return;
 
+            // Shared across every hediff so the catalog scan runs at most once per pawn.
+            HashSet<MentalBreakIntensity>? eligibleIntensities = null;
+
             foreach (Hediff hediff in hediffs)
             {
                 if (hediff == null) continue;
@@ -503,14 +506,15 @@ namespace BreakTimer
                     }
 
                     if (hasRandomBreak
-                        && !float.IsInfinity(stage.mentalBreakMtbDays) && !float.IsNaN(stage.mentalBreakMtbDays)
-                        && AnyRandomBreakEligible(pawn, stage.allowedMentalBreakIntensities))
+                        && !float.IsInfinity(stage.mentalBreakMtbDays) && !float.IsNaN(stage.mentalBreakMtbDays))
                     {
-                        sink.Add(new ExtraTrigger(
-                            RandomBreakLabel(stage.allowedMentalBreakIntensities),
-                            RandomBreakDefName,
-                            sourceTag,
-                            stage.mentalBreakMtbDays));
+                        eligibleIntensities ??= BuildEligibleIntensities(pawn);
+                        if (RandomBreakPossible(eligibleIntensities, stage.allowedMentalBreakIntensities))
+                            sink.Add(new ExtraTrigger(
+                                RandomBreakLabel(stage.allowedMentalBreakIntensities),
+                                RandomBreakDefName,
+                                sourceTag,
+                                stage.mentalBreakMtbDays));
                     }
                 }
                 catch (Exception ex)
@@ -534,16 +538,30 @@ namespace BreakTimer
             return "BreakTimer.RandomHediffBreakIntensity".Translate(intensities);
         }
 
-        // Whether stage.mentalBreakMtbDays could actually produce a break: mirrors vanilla's
-        // selection filter (BreakCanOccur + intensity + non-zero commonality, moodCaused false).
-        static bool AnyRandomBreakEligible(Pawn pawn, List<MentalBreakIntensity>? allowed)
+        static readonly int IntensityCount = Enum.GetValues(typeof(MentalBreakIntensity)).Length;
+
+        // Intensities the pawn has any occurable, non-zero-commonality break in - mirrors
+        // vanilla's random-break selection filter (moodCaused false).
+        static HashSet<MentalBreakIntensity> BuildEligibleIntensities(Pawn pawn)
         {
+            var set = new HashSet<MentalBreakIntensity>();
             foreach (BreakInfo info in MentalBreakCatalog.All)
             {
-                if (allowed != null && !allowed.Contains(info.Intensity)) continue;
+                if (set.Contains(info.Intensity)) continue;
                 if (!info.CanOccurFor(pawn)) continue;
-                if (info.CommonalityFor(pawn, moodCaused: false) > 0f) return true;
+                if (info.CommonalityFor(pawn, moodCaused: false) > 0f)
+                {
+                    set.Add(info.Intensity);
+                    if (set.Count == IntensityCount) break;
+                }
             }
+            return set;
+        }
+
+        static bool RandomBreakPossible(HashSet<MentalBreakIntensity> eligible, List<MentalBreakIntensity>? allowed)
+        {
+            foreach (MentalBreakIntensity intensity in eligible)
+                if (allowed == null || allowed.Contains(intensity)) return true;
             return false;
         }
 
