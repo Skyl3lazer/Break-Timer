@@ -9,7 +9,6 @@ namespace BreakTimer
     // remaining duration. Centralised so the indicator and start/end patches agree.
     public static class CatatonicBreak
     {
-        // The active CatatonicBreakdown hediff on the pawn, or null.
         public static Hediff? FindOn(Pawn? pawn)
         {
             HediffDef? def = BreakTimerDefOf.CatatonicBreakdown;
@@ -17,10 +16,8 @@ namespace BreakTimer
             return pawn.health.hediffSet.GetFirstHediffOfDef(def);
         }
 
-        // Remaining as a min/max window, not the exact countdown: the breakdown lasts a value
-        // rolled from disappearsAfterTicks (e.g. 100k-300k), and revealing the rolled total
-        // would be unfair, so we report the configured range minus elapsed. Zero window if no
-        // timed comp is present.
+        // A min/max window, not the exact countdown: revealing the rolled total would be unfair,
+        // so report the configured disappearsAfterTicks range minus elapsed.
         public static BreakDurationRemaining GetRemaining(Hediff hediff)
         {
             HediffComp_Disappears? comp = (hediff as HediffWithComps)?.TryGetComp<HediffComp_Disappears>();

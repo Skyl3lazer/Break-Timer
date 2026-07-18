@@ -52,9 +52,8 @@ namespace BreakTimer
         public string LabelCap { get; }
         public MentalBreakWorker Worker => Def.Worker;
 
-        // Authoritative "can this break happen to this pawn now?" — delegates to the worker,
-        // which covers both BreakRequirements and worker-specific gating (food on hand, exit
-        // reachable, ...).
+        // Delegates to the worker, which covers worker-specific gating (food on hand, exit
+        // reachable) beyond BreakRequirements.
         public bool CanOccurFor(Pawn pawn)
         {
             if (pawn is null) return false;
@@ -82,8 +81,6 @@ namespace BreakTimer
             }
         }
 
-        // Human-readable reasons this break can't happen to the pawn — declarative
-        // requirements plus the worker check. Kept for future "why not?" UI.
         public IEnumerable<string> GetUnmetReasons(Pawn pawn)
         {
             if (pawn is null) yield break;

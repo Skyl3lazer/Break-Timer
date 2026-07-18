@@ -6,10 +6,8 @@ using Verse.AI;
 
 namespace BreakTimer
 {
-    // Persisted record of an in-progress break, created on a successful TryStartMentalState
-    // and cleared on the matching RecoverFromState. We store the absolute start tick (not
-    // just MentalState.Age) so it survives saves made without the patch, lets the UI show
-    // absolute timestamps, and decouples the timer from MentalState internals.
+    // Persisted record of an in-progress break. Stores the absolute start tick (not MentalState.Age)
+    // so it survives saves made without the patch and decouples the timer from MentalState.
     public sealed class ActiveBreakRecord : IExposable
     {
         public MentalStateDef? stateDef;

@@ -57,22 +57,26 @@ namespace BreakTimer
 
         static int HashTooltipId(Pawn pawn) => unchecked(0x4B524554 ^ pawn.thingIDNumber);
 
-        // Cache the rendered string ~1s: TipSignal re-invokes the getter every frame, and the
-        // build pipeline makes reflective worker/MTB calls. None of the inputs change that
-        // fast (mood ticks ~every 60, "Remaining" rounds to hours). Patches invalidate on
-        // state change so transitions stay instant.
+        // TipSignal re-invokes the getter every frame and the build makes reflective worker calls,
+        // so the string is cached; the start/end patches invalidate it for instant transitions.
         const float TooltipTextCacheTtlSeconds = 1.0f;
 
         static int cachedPawnId;
         static MentalStateDef? cachedActiveStateDef;
         static HediffDef? cachedActiveBreakHediffDef;
+        static bool cachedExpanded;
         static float cachedAtRealtime;
         static string? cachedTooltipText;
+
+        // Read live in the getter so pressing Shift mid-hover swaps the view on the next repaint.
+        static bool ExpandModifierHeld =>
+            Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
 
         static string GetCachedTooltip(Pawn? pawn)
         {
             if (pawn is null) return "BreakTimer.NoPawnSelected".Translate();
 
+            bool expanded = ExpandModifierHeld;
             int id = pawn.thingIDNumber;
             MentalStateDef? activeStateDef = pawn.MentalState?.def;
             HediffDef? activeBreakHediffDef = CatatonicBreak.FindOn(pawn)?.def;
@@ -80,6 +84,7 @@ namespace BreakTimer
 
             if (cachedTooltipText != null
                 && cachedPawnId == id
+                && cachedExpanded == expanded
                 && ReferenceEquals(cachedActiveStateDef, activeStateDef)
                 && ReferenceEquals(cachedActiveBreakHediffDef, activeBreakHediffDef)
                 && now - cachedAtRealtime < TooltipTextCacheTtlSeconds)
@@ -87,10 +92,11 @@ namespace BreakTimer
                 return cachedTooltipText;
             }
 
-            string text = BuildTooltip(pawn);
+            string text = BuildTooltip(pawn, expanded);
             cachedPawnId = id;
             cachedActiveStateDef = activeStateDef;
             cachedActiveBreakHediffDef = activeBreakHediffDef;
+            cachedExpanded = expanded;
             cachedAtRealtime = now;
             cachedTooltipText = text;
             return text;
@@ -103,20 +109,25 @@ namespace BreakTimer
             cachedTooltipText = null;
         }
 
-        static string BuildTooltip(Pawn? pawn)
+        static string BuildTooltip(Pawn? pawn, bool expanded)
         {
             if (pawn is null) return "BreakTimer.NoPawnSelected".Translate();
 
             try
             {
                 MentalState? state = pawn.MentalState;
-                if (state?.def != null)
-                    return BuildActiveBreakTooltip(pawn, state);
+                Hediff? breakHediff = state?.def == null ? CatatonicBreak.FindOn(pawn) : null;
+                bool inBreak = state?.def != null || breakHediff != null;
 
-                Hediff? breakHediff = CatatonicBreak.FindOn(pawn);
-                return breakHediff != null
-                    ? BuildHediffBreakTooltip(pawn, breakHediff)
+                string body =
+                    state?.def != null ? BuildActiveBreakTooltip(pawn, state)
+                    : breakHediff != null ? BuildHediffBreakTooltip(pawn, breakHediff)
                     : BuildPossibleBreaksTooltip(pawn);
+
+                if (!expanded)
+                    return body + "\n" + "BreakTimer.ShiftForMore".Translate();
+
+                return AppendExpandedSections(body, pawn, inBreak);
             }
             catch (Exception ex)
             {
@@ -125,6 +136,106 @@ namespace BreakTimer
                     Once.Id("tooltip-build"));
                 return "BreakTimer.TooltipError".Translate();
             }
+        }
+
+        // Runs only when Shift is held, keeping this work off the default hover.
+        static string AppendExpandedSections(string body, Pawn pawn, bool inBreak)
+        {
+            var sb = new StringBuilder(body);
+
+            if (!inBreak)
+            {
+                string blocked = RenderBlockedTier(pawn);
+                if (blocked.Length > 0) sb.Append("\n\n").Append(blocked);
+            }
+
+            string history = RenderHistory(pawn);
+            if (history.Length > 0) sb.Append("\n\n").Append(history);
+
+            return sb.ToString().TrimEnd();
+        }
+
+        static string RenderHistory(Pawn pawn)
+        {
+            IReadOnlyList<CompletedBreakRecord> hist =
+                BreakTimerGameComponent.Instance?.GetHistory(pawn) ?? Array.Empty<CompletedBreakRecord>();
+            if (hist.Count == 0) return string.Empty;
+
+            int nowTick = Find.TickManager.TicksGame;
+            var sb = new StringBuilder();
+            sb.AppendLine("BreakTimer.HistoryHeader".Translate());
+
+            for (int i = hist.Count - 1; i >= 0; i--)
+            {
+                CompletedBreakRecord rec = hist[i];
+                if (rec is null) continue;
+
+                string label = HistoryLabel(rec);
+                if (label.NullOrEmpty()) continue;
+
+                string ago = Mathf.Max(0, nowTick - rec.endTick).ToStringTicksToPeriod(shortForm: true);
+                string lasted = rec.DurationTicks.ToStringTicksToPeriod(shortForm: true);
+                string? cause = HistoryCause(rec);
+
+                string line = cause != null
+                    ? "BreakTimer.HistoryEntryCause".Translate(label, cause, ago, lasted)
+                    : "BreakTimer.HistoryEntry".Translate(label, ago, lasted);
+                sb.Append(" ").AppendLine(line);
+            }
+
+            return sb.ToString().TrimEnd();
+        }
+
+        static string HistoryLabel(CompletedBreakRecord rec)
+        {
+            if (rec.breakDef != null) return BreakLabels.ForBreakCap(rec.breakDef);
+            if (rec.stateDef != null) return BreakLabels.ForState(rec.stateDef);
+            return string.Empty;
+        }
+
+        static string? HistoryCause(CompletedBreakRecord rec)
+        {
+            if (rec.causedByMood) return "BreakTimer.CauseMood".Translate();
+            if (rec.causedByDamage) return "BreakTimer.CauseDamage".Translate();
+            if (rec.causedByPsycast) return "BreakTimer.CausePsycast".Translate();
+            return null;
+        }
+
+        // Breaks in the pawn's active mood tier that a requirement blocks right now, each with one
+        // reason. Ideoligion-disallowed breaks are surfaced; breaks gated only by an uninstalled
+        // DLC are hidden so the tooltip never advertises content the player doesn't own.
+        static string RenderBlockedTier(Pawn pawn)
+        {
+            MentalBreaker? breaker = pawn.mindState?.mentalBreaker;
+            if (breaker == null || breaker.Blocked || !breaker.CanDoRandomMentalBreaks)
+                return string.Empty;
+
+            MentalBreakIntensity? tier = BlockedBreaks.HighestEligibleIntensity(breaker);
+            if (tier is null) return "BreakTimer.NoTierActive".Translate();
+
+            List<BlockedBreak> found = BlockedBreaks.InTier(pawn, tier.Value);
+            if (found.Count == 0) return string.Empty;
+
+            var pool = new List<(string label, string defName)>(found.Count);
+            foreach (BlockedBreak b in found) pool.Add((b.Info.LabelCap, b.Info.DefName));
+            List<string> labels = LabelDisambiguator.Resolve(pool);
+
+            var rows = new List<(string label, string reason)>(found.Count);
+            for (int i = 0; i < found.Count; i++)
+            {
+                BlockedBreak b = found[i];
+                string reason = b.Kind == BlockKind.IdeoDisallowed
+                    ? "BreakTimer.ReqIdeo".Translate()
+                    : b.Info.GetUnmetReasons(pawn).FirstOrDefault() ?? "BreakTimer.ReqWorkerPrereqs".Translate();
+                rows.Add((labels[i], reason));
+            }
+            rows.Sort((a, b) => string.Compare(a.label, b.label, StringComparison.CurrentCultureIgnoreCase));
+
+            var sb = new StringBuilder();
+            sb.AppendLine("BreakTimer.BlockedHeader".Translate(tier.Value.ToString()));
+            foreach (var (label, reason) in rows)
+                sb.Append(" ").AppendLine("BreakTimer.BlockedEntry".Translate(label, reason));
+            return sb.ToString().TrimEnd();
         }
 
         static string BuildActiveBreakTooltip(Pawn pawn, MentalState state)
@@ -198,8 +309,8 @@ namespace BreakTimer
             }
         }
 
-        // Catatonic has no mentalState — its worker applies the CatatonicBreakdown hediff, so
-        // pawn.MentalState is null. Detection and timing live on CatatonicBreak.
+        // Catatonic has no MentalState (pawn.MentalState is null); detection and timing live on
+        // CatatonicBreak.
         static string BuildHediffBreakTooltip(Pawn pawn, Hediff hediff)
         {
             var sb = new StringBuilder();
@@ -229,12 +340,8 @@ namespace BreakTimer
             return sb.ToString().TrimEnd();
         }
 
-        // Tooltip when the pawn is not in a break. Two sections: the mood-driven tier (the
-        // single intensity CurMood qualifies for, weighted the way MentalBreaker rolls them)
-        // and "other potential states" (mood-independent trait and mental-fit triggers, each
-        // with source and MTB). Runs in three passes — gather, disambiguate across the union
-        // of both sections, render — so a defName collision only gets a tag when both
-        // colliding items are actually shown.
+        // Disambiguation runs across the union of both sections (mood tier plus other triggers) so a
+        // defName collision only gets a tag when both colliding items are actually shown.
         static string BuildPossibleBreaksTooltip(Pawn pawn)
         {
             MoodTier mood = CollectMoodTier(pawn);
@@ -281,7 +388,6 @@ namespace BreakTimer
 
             public MentalBreakIntensity? Intensity { get; }
             public List<(BreakInfo info, float weight)>? Entries { get; }
-            // Optional pre-rendered message that replaces the entries list (e.g. "blocked").
             public string? Message { get; }
 
             public static MoodTier Hidden => new(null, null, null);
@@ -295,7 +401,7 @@ namespace BreakTimer
             if (breaker.Blocked) return MoodTier.WithMessage("BreakTimer.PossibleBreaksBlocked".Translate());
             if (!breaker.CanDoRandomMentalBreaks) return MoodTier.Hidden;
 
-            MentalBreakIntensity? eligible = HighestEligibleIntensity(breaker);
+            MentalBreakIntensity? eligible = BlockedBreaks.HighestEligibleIntensity(breaker);
             if (eligible is null) return MoodTier.Hidden;
 
             var entries = new List<(BreakInfo info, float weight)>(8);
@@ -447,10 +553,8 @@ namespace BreakTimer
             }
         }
 
-        // A Psyche scar tied to this trait throttles the trait's mental-state rolls by the scar's
-        // severity, so a chance factor below 1 lengthens the effective MTB; a zero factor makes the
-        // trigger impossible (infinite MTB) and the caller's guard drops it. Factor 1 (no Psyche, no
-        // scar) leaves the MTB untouched.
+        // A Psyche scar throttles the trait's rolls by its severity; a zero factor yields infinite
+        // MTB, which the caller's guard drops.
         static float ScaleByScarFactor(float baseMtbDays, Pawn pawn, Trait trait, MentalStateDef state)
         {
             if (!PsycheCompat.Available) return baseMtbDays;
@@ -600,18 +704,6 @@ namespace BreakTimer
             if (mtbDays >= 1f) return Mathf.RoundToInt(mtbDays).ToString() + "d";
             int hours = Mathf.Max(1, Mathf.CeilToInt(mtbDays * 24f));
             return hours.ToString() + "h";
-        }
-
-        // Highest intensity the pawn qualifies for off CurMood vs the per-tier thresholds.
-        // Mirrors MentalBreaker.CurrentDesiredMoodBreakIntensity, minus the 2000-tick dwell
-        // requirement (too coarse for a snapshot tooltip).
-        static MentalBreakIntensity? HighestEligibleIntensity(MentalBreaker breaker)
-        {
-            float mood = breaker.CurMood;
-            if (mood < breaker.BreakThresholdExtreme) return MentalBreakIntensity.Extreme;
-            if (mood < breaker.BreakThresholdMajor) return MentalBreakIntensity.Major;
-            if (mood < breaker.BreakThresholdMinor) return MentalBreakIntensity.Minor;
-            return null;
         }
 
         static string ExtractDescription(MentalState state, Pawn pawn)

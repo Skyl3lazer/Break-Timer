@@ -19,7 +19,6 @@ namespace BreakTimer
         static Dictionary<MentalStateDef, BreakInfo> byState = new();
         static Dictionary<MentalStateDef, MentalStateInfo> stateInfoByDef = new();
 
-        // The BreakInfo whose mental state matches, if any.
         public static BreakInfo? GetForState(MentalStateDef? state)
         {
             if (state is null) return null;
@@ -27,9 +26,8 @@ namespace BreakTimer
             return byState.TryGetValue(state, out BreakInfo info) ? info : null;
         }
 
-        // MentalStateInfo for any MentalStateDef, with or without a MentalBreakDef. Covers the
-        // "pawn is in state X — how long and what's it called?" cases that the break path
-        // doesn't own: hediff-driven states (WanderConfused), trait/mental-fit givers, etc.
+        // Covers states the break path doesn't own: hediff-driven states (WanderConfused) and
+        // trait/mental-fit givers, with or without a MentalBreakDef.
         public static MentalStateInfo? GetStateInfo(MentalStateDef? state)
         {
             if (state is null) return null;

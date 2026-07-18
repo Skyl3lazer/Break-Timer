@@ -39,13 +39,33 @@
   <BreakTimer.RandomHediffBreak>Random mental break</BreakTimer.RandomHediffBreak>
   <BreakTimer.RandomHediffBreakIntensity>Random {0} mental break</BreakTimer.RandomHediffBreakIntensity>
 
+  <!-- Expanded view (Shift held). History section. -->
+  <BreakTimer.HistoryHeader>Recent breaks:</BreakTimer.HistoryHeader>
+  <!-- {0} = label, {1} = time ago, {2} = duration -->
+  <BreakTimer.HistoryEntry>{0} - ended {1} ago, lasted {2}</BreakTimer.HistoryEntry>
+  <!-- {0} = label, {1} = cause, {2} = time ago, {3} = duration -->
+  <BreakTimer.HistoryEntryCause>{0} ({1}) - ended {2} ago, lasted {3}</BreakTimer.HistoryEntryCause>
+  <BreakTimer.CauseMood>mood</BreakTimer.CauseMood>
+  <BreakTimer.CauseDamage>damage</BreakTimer.CauseDamage>
+  <BreakTimer.CausePsycast>psycast</BreakTimer.CausePsycast>
+
+  <!-- Expanded view. Blocked-breaks section. {0} = intensity -->
+  <BreakTimer.BlockedHeader>Blocked ({0}):</BreakTimer.BlockedHeader>
+  <!-- {0} = label, {1} = reason -->
+  <BreakTimer.BlockedEntry>{0}: {1}</BreakTimer.BlockedEntry>
+  <BreakTimer.NoTierActive>Mood stable - no break tier active.</BreakTimer.NoTierActive>
+
+  <!-- Expanded-view hint shown on the unexpanded tooltip. -->
+  <BreakTimer.ShiftForMore>(hold Shift for details)</BreakTimer.ShiftForMore>
+
   <!-- Source tags. {0} = trait/condition label -->
   <BreakTimer.SourceCondition>Condition: {0}</BreakTimer.SourceCondition>
   <BreakTimer.SourceTrait>trait: {0}</BreakTimer.SourceTrait>
   <BreakTimer.SourceTraitFallback>trait</BreakTimer.SourceTraitFallback>
   <BreakTimer.FallbackHediff>hediff</BreakTimer.FallbackHediff>
 
-  <!-- Unmet-requirement reasons. These are not currently used. {0} = trait/gene/precept/capacity label -->
+  <!-- Unmet-requirement reasons, shown in the expanded-view blocked list. {0} = trait/gene/precept/capacity label -->
+  <BreakTimer.ReqIdeo>Ideoligion disallows this break</BreakTimer.ReqIdeo>
   <BreakTimer.ReqTrait>Requires trait: {0}</BreakTimer.ReqTrait>
   <BreakTimer.ReqGene>Requires gene: {0}</BreakTimer.ReqGene>
   <BreakTimer.ReqPrecept>Requires precept: {0}</BreakTimer.ReqPrecept>

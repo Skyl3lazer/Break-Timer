@@ -65,15 +65,12 @@ namespace BreakTimer
         public bool AllowGuilty { get; }
         public IReadOnlyList<PawnCapacityDef> RequiredCapacities { get; }
 
-        // True when no declarative requirement blocks the pawn.
         public bool DeclarativelyAllowsPawn(Pawn pawn)
         {
             if (pawn is null) return false;
             return !GetUnmetReasons(pawn).Any();
         }
 
-        // Human-readable reasons this break's declarative requirements would block the pawn;
-        // empty when all are satisfied.
         public IEnumerable<string> GetUnmetReasons(Pawn pawn)
         {
             if (pawn is null) yield break;

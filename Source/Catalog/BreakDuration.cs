@@ -6,10 +6,8 @@ using Verse.AI;
 
 namespace BreakTimer
 {
-    // Immutable view of a mental state's recovery profile, computing min/expected/max
-    // durations in ticks and days. The game's recovery: once minTicksBeforeRecovery has
-    // elapsed, recovery is rolled as an MTB event off recoveryMtbDays; a hard cap applies
-    // at maxTicksBeforeRecovery, and an active state may shorten via forceRecoverAfterTicks.
+    // Immutable view of a mental state's recovery profile - min/expected/max in ticks and days,
+    // derived from the vanilla recovery fields (minTicksBeforeRecovery, recoveryMtbDays, the cap).
     public sealed class BreakDuration
     {
         public const float DefaultRecoveryMtbDays = 1f;
@@ -49,9 +47,8 @@ namespace BreakTimer
         // True when the MTB recovery roll is disabled and only the hard cap ends the state.
         public bool RecoveryIsDeterministic => RecoveryMtbDays <= 0f;
 
-        // Expected total ticks for a fresh break, assuming no external recovery (sleep,
-        // downed, ...) interrupts it: the MTB average shifted by the eligibility window
-        // and clamped to the hard cap.
+        // Expected total ticks assuming nothing interrupts (sleep, downed): the MTB average
+        // shifted by the eligibility window, capped.
         static int ComputeExpectedTicks(int minTicks, int maxTicks, float recoveryMtbDays)
         {
             if (recoveryMtbDays <= 0f)
