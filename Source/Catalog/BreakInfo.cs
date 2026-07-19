@@ -92,8 +92,7 @@ namespace BreakTimer
                 yield return TraitRestrictionReason(pawn) ?? "BreakTimer.ReqNotPossibleNow".Translate();
         }
 
-        // Trait gates BreakCanOccur enforces that aren't declarative break requirements, so they
-        // read as a named trait rather than the opaque catch-all.
+        // Trait gates BreakCanOccur enforces that aren't declarative break requirements.
         string? TraitRestrictionReason(Pawn pawn)
         {
             TraitSet? traits = pawn.story?.traits;

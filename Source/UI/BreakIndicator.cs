@@ -17,6 +17,11 @@ namespace BreakTimer
         public const float IconSize = 22f;
         public const float SidePadding = 4f;
 
+        // Vanilla caps tooltips at 260f; the expanded view needs more room.
+        public const float ExpandedMaxWidth = 460f;
+        // 0 = no tooltip wants widening this frame.
+        internal static int WideTooltipId;
+
         // Mirrors Need.DrawOnGUI's layout: the bar sits in the lower half of the rect (top
         // half is the "Mood" label), with 14f bottom padding inside the bar area.
         const float NeedLabelHeightFraction = 0.5f;
@@ -50,6 +55,7 @@ namespace BreakTimer
             {
                 Widgets.DrawHighlight(iconRect);
                 int tooltipId = HashTooltipId(pawn);
+                WideTooltipId = ExpandModifierHeld ? tooltipId : 0;
                 Func<string> getter = () => GetCachedTooltip(pawn);
                 TooltipHandler.TipRegion(iconRect, new TipSignal(getter, tooltipId));
             }
