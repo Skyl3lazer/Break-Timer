@@ -89,7 +89,59 @@ namespace BreakTimer
                 yield return r;
 
             if (Requirements.DeclarativelyAllowsPawn(pawn) && !CanOccurFor(pawn))
-                yield return "BreakTimer.ReqWorkerPrereqs".Translate();
+                yield return TraitRestrictionReason(pawn) ?? "BreakTimer.ReqNotPossibleNow".Translate();
+        }
+
+        // Trait gates BreakCanOccur enforces that aren't declarative break requirements, so they
+        // read as a named trait rather than the opaque catch-all.
+        string? TraitRestrictionReason(Pawn pawn)
+        {
+            TraitSet? traits = pawn.story?.traits;
+            if (traits == null) return null;
+
+            if (MentalState != null)
+            {
+                foreach (Trait t in traits.allTraits)
+                {
+                    if (t.Suppressed) continue;
+                    List<MentalStateDef>? disallowed = t.CurrentData?.disallowedMentalStates;
+                    if (disallowed != null && disallowed.Contains(MentalState))
+                        return "BreakTimer.ReqTraitDisallows".Translate(BreakLabels.ForTrait(t));
+                }
+            }
+
+            Trait? restrictor = OnlyAllowedRestrictor(pawn, traits);
+            if (restrictor != null)
+                return "BreakTimer.ReqTraitOnlyAllows".Translate(BreakLabels.ForTrait(restrictor));
+
+            return null;
+        }
+
+        // Mirrors BreakCanOccur's only-allowed clause, which blocks this break only when an allowed
+        // same-intensity break can actually occur - otherwise the real block is elsewhere.
+        Trait? OnlyAllowedRestrictor(Pawn pawn, TraitSet traits)
+        {
+            var allowed = new List<MentalBreakDef>();
+            foreach (MentalBreakDef d in traits.TheOnlyAllowedMentalBreaks) allowed.Add(d);
+            if (allowed.Count == 0 || allowed.Contains(Def)) return null;
+
+            bool anAllowedCanOccur = false;
+            foreach (MentalBreakDef d in allowed)
+            {
+                if (d.intensity != Intensity) continue;
+                try { if (d.Worker.BreakCanOccur(pawn)) { anAllowedCanOccur = true; break; } }
+                catch { /* a worker throwing is treated as cannot-occur */ }
+            }
+            if (!anAllowedCanOccur) return null;
+
+            foreach (Trait t in traits.allTraits)
+            {
+                if (t.Suppressed) continue;
+                List<MentalBreakDef>? only = t.CurrentData?.theOnlyAllowedMentalBreaks;
+                if (only != null && only.Count > 0 && !only.Contains(Def))
+                    return t;
+            }
+            return null;
         }
 
         public override string ToString()

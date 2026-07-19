@@ -78,6 +78,8 @@
   <BreakTimer.ReqDowned>Pawn is downed</BreakTimer.ReqDowned>
   <BreakTimer.ReqCapacity>Requires capacity: {0}</BreakTimer.ReqCapacity>
   <BreakTimer.ReqLayer>Not allowed on this planet layer</BreakTimer.ReqLayer>
-  <BreakTimer.ReqWorkerPrereqs>Worker-specific prerequisites not met</BreakTimer.ReqWorkerPrereqs>
+  <BreakTimer.ReqTraitDisallows>Disallowed by trait: {0}</BreakTimer.ReqTraitDisallows>
+  <BreakTimer.ReqTraitOnlyAllows>Trait {0} allows only specific breaks</BreakTimer.ReqTraitOnlyAllows>
+  <BreakTimer.ReqNotPossibleNow>Not possible right now</BreakTimer.ReqNotPossibleNow>
 
 </LanguageData>

@@ -226,7 +226,7 @@ namespace BreakTimer
                 BlockedBreak b = found[i];
                 string reason = b.Kind == BlockKind.IdeoDisallowed
                     ? "BreakTimer.ReqIdeo".Translate()
-                    : b.Info.GetUnmetReasons(pawn).FirstOrDefault() ?? "BreakTimer.ReqWorkerPrereqs".Translate();
+                    : b.Info.GetUnmetReasons(pawn).FirstOrDefault() ?? "BreakTimer.ReqNotPossibleNow".Translate();
                 rows.Add((labels[i], reason));
             }
             rows.Sort((a, b) => string.Compare(a.label, b.label, StringComparison.CurrentCultureIgnoreCase));
