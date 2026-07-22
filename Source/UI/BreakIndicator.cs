@@ -153,6 +153,9 @@ namespace BreakTimer
             {
                 string blocked = RenderBlockedTier(pawn);
                 if (blocked.Length > 0) sb.Append("\n\n").Append(blocked);
+
+                string suppressed = RenderDbmSuppression(pawn);
+                if (suppressed.Length > 0) sb.Append("\n\n").Append(suppressed);
             }
 
             string history = RenderHistory(pawn);
@@ -216,7 +219,7 @@ namespace BreakTimer
             if (breaker == null || breaker.Blocked || !breaker.CanDoRandomMentalBreaks)
                 return string.Empty;
 
-            MentalBreakIntensity? tier = BlockedBreaks.HighestEligibleIntensity(breaker);
+            MentalBreakIntensity? tier = BlockedBreaks.ResolveTiers(pawn, breaker).Effective;
             if (tier is null) return "BreakTimer.NoTierActive".Translate();
 
             List<BlockedBreak> found = BlockedBreaks.InTier(pawn, tier.Value);
@@ -242,6 +245,21 @@ namespace BreakTimer
             foreach (var (label, reason) in rows)
                 sb.Append(" ").AppendLine("BreakTimer.BlockedEntry".Translate(label, reason));
             return sb.ToString().TrimEnd();
+        }
+
+        // Dubs Break Mod caps whole tiers, not single breaks, so the tiers it holds back are named
+        // once rather than listed break by break.
+        static string RenderDbmSuppression(Pawn pawn)
+        {
+            MentalBreaker? breaker = pawn.mindState?.mentalBreaker;
+            if (breaker == null || breaker.Blocked || !breaker.CanDoRandomMentalBreaks)
+                return string.Empty;
+
+            IReadOnlyList<MentalBreakIntensity> suppressed = BlockedBreaks.ResolveTiers(pawn, breaker).Suppressed;
+            if (suppressed.Count == 0) return string.Empty;
+
+            string tiers = string.Join(", ", suppressed.Select(t => t.ToString()));
+            return "BreakTimer.DbmSuppressedTiers".Translate(tiers);
         }
 
         static string BuildActiveBreakTooltip(Pawn pawn, MentalState state)
@@ -407,9 +425,13 @@ namespace BreakTimer
             if (breaker.Blocked) return MoodTier.WithMessage("BreakTimer.PossibleBreaksBlocked".Translate());
             if (!breaker.CanDoRandomMentalBreaks) return MoodTier.Hidden;
 
-            MentalBreakIntensity? eligible = BlockedBreaks.HighestEligibleIntensity(breaker);
-            if (eligible is null) return MoodTier.Hidden;
+            ResolvedTiers tiers = BlockedBreaks.ResolveTiers(pawn, breaker);
+            if (tiers.Effective is null)
+                return tiers.Suppressed.Count > 0
+                    ? MoodTier.WithMessage("BreakTimer.MoodBreaksHeldByDbm".Translate())
+                    : MoodTier.Hidden;
 
+            MentalBreakIntensity effective = tiers.Effective.Value;
             var entries = new List<(BreakInfo info, float weight)>(8);
 
             HashSet<MentalBreakDef>? ideoAllow = null;
@@ -423,7 +445,7 @@ namespace BreakTimer
             bool useIdeoFilter = ideoAllow != null && ideoAllow.Count > 0;
             bool anomalyActive = ModsConfig.AnomalyActive;
 
-            foreach (BreakInfo info in MentalBreakCatalog.OfIntensity(eligible.Value))
+            foreach (BreakInfo info in MentalBreakCatalog.OfIntensity(effective))
             {
                 try
                 {
@@ -444,7 +466,7 @@ namespace BreakTimer
                 }
             }
 
-            return new MoodTier(eligible, entries, null);
+            return new MoodTier(effective, entries, null);
         }
 
         static string RenderMoodTier(MoodTier tier, IReadOnlyList<string> labels, int labelOffset)

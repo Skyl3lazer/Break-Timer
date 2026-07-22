@@ -55,6 +55,10 @@
   <BreakTimer.BlockedEntry>{0}: {1}</BreakTimer.BlockedEntry>
   <BreakTimer.NoTierActive>Mood stable - no break tier active.</BreakTimer.NoTierActive>
 
+  <!-- Dubs Break Mod integration. {0} = comma-separated suppressed tiers (e.g. "Major, Extreme") -->
+  <BreakTimer.DbmSuppressedTiers>{0}: suppressed by Dubs Break Mod (no single grievance severe enough).</BreakTimer.DbmSuppressedTiers>
+  <BreakTimer.MoodBreaksHeldByDbm>No mood break imminent - held back by Dubs Break Mod.</BreakTimer.MoodBreaksHeldByDbm>
+
   <!-- Expanded-view hint shown on the unexpanded tooltip. -->
   <BreakTimer.ShiftForMore>(hold Shift for details)</BreakTimer.ShiftForMore>
 
