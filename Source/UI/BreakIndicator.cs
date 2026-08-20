@@ -190,9 +190,39 @@ namespace BreakTimer
                     ? "BreakTimer.HistoryEntryCause".Translate(label, cause, ago, lasted)
                     : "BreakTimer.HistoryEntry".Translate(label, ago, lasted);
                 sb.Append(" ").AppendLine(line);
+
+                string reason = FormatReason(rec.reason);
+                if (reason.Length > 0)
+                    sb.Append("   ").AppendLine("BreakTimer.HistoryReason".Translate(reason));
             }
 
             return sb.ToString().TrimEnd();
+        }
+
+        const int ReasonMaxChars = 120;
+
+        // A mood break's reason arrives multi-line, with its final straw appended.
+        static string FormatReason(string? reason)
+        {
+            if (reason.NullOrEmpty()) return string.Empty;
+
+            var sb = new StringBuilder(reason!.Length);
+            bool lastWasSpace = false;
+            foreach (char c in reason!)
+            {
+                bool isSpace = char.IsWhiteSpace(c);
+                if (isSpace && (lastWasSpace || sb.Length == 0)) continue;
+                sb.Append(isSpace ? ' ' : c);
+                lastWasSpace = isSpace;
+            }
+            while (sb.Length > 0 && sb[sb.Length - 1] == ' ') sb.Length--;
+
+            if (sb.Length > ReasonMaxChars)
+            {
+                sb.Length = ReasonMaxChars;
+                sb.Append("...");
+            }
+            return sb.ToString();
         }
 
         static string HistoryLabel(CompletedBreakRecord rec)
@@ -202,9 +232,9 @@ namespace BreakTimer
             return string.Empty;
         }
 
+        // causedByMood is deliberately absent. The reason line carries attribution instead.
         static string? HistoryCause(CompletedBreakRecord rec)
         {
-            if (rec.causedByMood) return "BreakTimer.CauseMood".Translate();
             if (rec.causedByDamage) return "BreakTimer.CauseDamage".Translate();
             if (rec.causedByPsycast) return "BreakTimer.CausePsycast".Translate();
             return null;

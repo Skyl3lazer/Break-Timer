@@ -68,6 +68,9 @@ namespace BreakTimer
         public bool causedByDamage;
         public bool causedByPsycast;
 
+        // causedByMood names no source. Vanilla hardcodes it true for every caller.
+        public string? reason;
+
         public CompletedBreakRecord() { }
 
         public CompletedBreakRecord(ActiveBreakRecord active, int endTick)
@@ -79,6 +82,7 @@ namespace BreakTimer
             causedByMood = active.causedByMood;
             causedByDamage = active.causedByDamage;
             causedByPsycast = active.causedByPsycast;
+            reason = active.reason;
         }
 
         public int DurationTicks => Mathf.Max(0, endTick - startTick);
@@ -92,6 +96,7 @@ namespace BreakTimer
             Scribe_Values.Look(ref causedByMood, "causedByMood", defaultValue: false);
             Scribe_Values.Look(ref causedByDamage, "causedByDamage", defaultValue: false);
             Scribe_Values.Look(ref causedByPsycast, "causedByPsycast", defaultValue: false);
+            Scribe_Values.Look(ref reason, "reason");
         }
     }
 

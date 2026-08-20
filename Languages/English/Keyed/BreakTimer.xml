@@ -45,9 +45,10 @@
   <BreakTimer.HistoryEntry>{0} - ended {1} ago, lasted {2}</BreakTimer.HistoryEntry>
   <!-- {0} = label, {1} = cause, {2} = time ago, {3} = duration -->
   <BreakTimer.HistoryEntryCause>{0} ({1}) - ended {2} ago, lasted {3}</BreakTimer.HistoryEntryCause>
-  <BreakTimer.CauseMood>mood</BreakTimer.CauseMood>
   <BreakTimer.CauseDamage>damage</BreakTimer.CauseDamage>
   <BreakTimer.CausePsycast>psycast</BreakTimer.CausePsycast>
+  <!-- The reason the game passed in when the break started. {0} = that text -->
+  <BreakTimer.HistoryReason>{0}</BreakTimer.HistoryReason>
 
   <!-- Expanded view. Blocked-breaks section. {0} = intensity -->
   <BreakTimer.BlockedHeader>Blocked ({0}):</BreakTimer.BlockedHeader>
