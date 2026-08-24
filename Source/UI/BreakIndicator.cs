@@ -455,6 +455,11 @@ namespace BreakTimer
             if (breaker.Blocked) return MoodTier.WithMessage("BreakTimer.PossibleBreaksBlocked".Translate());
             if (!breaker.CanDoRandomMentalBreaks) return MoodTier.Hidden;
 
+            int cooldown = BlockedBreaks.MoodBreakCooldownTicks(breaker);
+            if (cooldown > 0)
+                return MoodTier.WithMessage(
+                    "BreakTimer.MoodBreaksOnCooldown".Translate(cooldown.ToStringTicksToPeriod(shortForm: true)));
+
             ResolvedTiers tiers = BlockedBreaks.ResolveTiers(pawn, breaker);
             if (tiers.Effective is null)
                 return tiers.Suppressed.Count > 0
@@ -462,41 +467,7 @@ namespace BreakTimer
                     : MoodTier.Hidden;
 
             MentalBreakIntensity effective = tiers.Effective.Value;
-            var entries = new List<(BreakInfo info, float weight)>(8);
-
-            HashSet<MentalBreakDef>? ideoAllow = null;
-            try { ideoAllow = pawn.Ideo?.cachedPossibleMentalBreaks; }
-            catch (Exception ex)
-            {
-                Log.WarningOnce(
-                    $"[BreakTimer] Ideo.cachedPossibleMentalBreaks threw: {ex.Message}",
-                    Once.Id("ideo-breaks"));
-            }
-            bool useIdeoFilter = ideoAllow != null && ideoAllow.Count > 0;
-            bool anomalyActive = ModsConfig.AnomalyActive;
-
-            foreach (BreakInfo info in MentalBreakCatalog.OfIntensity(effective))
-            {
-                try
-                {
-                    if (info.Requirements.AnomalousBreak && !anomalyActive) continue;
-                    if (useIdeoFilter && !ideoAllow!.Contains(info.Def)) continue;
-                    if (!info.CanOccurFor(pawn)) continue;
-
-                    float weight = info.CommonalityFor(pawn, moodCaused: true);
-                    if (weight <= 0f || float.IsNaN(weight) || float.IsInfinity(weight)) continue;
-
-                    entries.Add((info, weight));
-                }
-                catch (Exception ex)
-                {
-                    Log.WarningOnce(
-                        $"[BreakTimer] Skipping break {info.DefName} in possible-list: {ex.Message}",
-                        Once.Id("possible-list", info.DefName));
-                }
-            }
-
-            return new MoodTier(effective, entries, null);
+            return new MoodTier(effective, BlockedBreaks.MoodTierEntries(pawn, effective), null);
         }
 
         static string RenderMoodTier(MoodTier tier, IReadOnlyList<string> labels, int labelOffset)

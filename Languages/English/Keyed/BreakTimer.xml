@@ -25,7 +25,7 @@
   <BreakTimer.Latest>Latest:   {0}</BreakTimer.Latest>
 
   <!-- Possible-breaks preview. {0} = mood break intensity (Minor/Major/Extreme) -->
-  <BreakTimer.PossibleBreaksNonePossible>Possible mental breaks:\n No possible breaks!</BreakTimer.PossibleBreaksNonePossible>
+  <BreakTimer.PossibleBreaksNonePossible>Possible mental breaks:\n None predicted.</BreakTimer.PossibleBreaksNonePossible>
   <BreakTimer.PossibleBreaksBlocked>Possible mental breaks:\n Breaks are currently blocked!</BreakTimer.PossibleBreaksBlocked>
   <BreakTimer.PossibleBreaksNoneEligible>Possible mental breaks ({0}):\n No currently eligible breaks!</BreakTimer.PossibleBreaksNoneEligible>
   <BreakTimer.PossibleBreaksHeader>Possible mental breaks ({0}):</BreakTimer.PossibleBreaksHeader>
@@ -59,6 +59,9 @@
   <!-- Dubs Break Mod integration. {0} = comma-separated suppressed tiers (e.g. "Major, Extreme") -->
   <BreakTimer.DbmSuppressedTiers>{0}: suppressed by Dubs Break Mod (no single grievance severe enough).</BreakTimer.DbmSuppressedTiers>
   <BreakTimer.MoodBreaksHeldByDbm>No mood break imminent - held back by Dubs Break Mod.</BreakTimer.MoodBreaksHeldByDbm>
+
+  <!-- Vanilla blocks mood breaks for 15000 ticks after a recovery. {0} = time left -->
+  <BreakTimer.MoodBreaksOnCooldown>Recently recovered, no mood break for ~{0}.</BreakTimer.MoodBreaksOnCooldown>
 
   <!-- Expanded-view hint shown on the unexpanded tooltip. -->
   <BreakTimer.ShiftForMore>(hold Shift for details)</BreakTimer.ShiftForMore>

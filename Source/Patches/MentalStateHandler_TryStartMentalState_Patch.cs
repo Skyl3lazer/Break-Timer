@@ -30,11 +30,22 @@ namespace BreakTimer.Patches
                 if (state?.pawn is null || state.def is null) return;
 
                 store.OnBreakStarted(state.pawn, state, reason);
+
+                if (Prefs.DevMode && reason.NullOrEmpty())
+                    LogUnattributedStart(state.def);
             }
             catch (Exception ex)
             {
                 Log.Error($"[BreakTimer] TryStartMentalState postfix failed: {ex}");
             }
+        }
+
+        // No vanilla entry point omits the reason. An empty one means a mod started this directly.
+        static void LogUnattributedStart(MentalStateDef stateDef)
+        {
+            Log.WarningOnce(
+                $"[BreakTimer] {stateDef.defName} started with no reason. Caller:\n{Environment.StackTrace}",
+                Once.Id("no-reason", stateDef.defName));
         }
     }
 }
