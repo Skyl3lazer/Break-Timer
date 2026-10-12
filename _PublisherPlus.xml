@@ -13,5 +13,7 @@
     <exclude>BreakTimer.sln</exclude>
     <exclude>docs</exclude>
     <exclude>Source</exclude>
+    <exclude>CONTEXT.md</exclude>
+    <exclude>Textures\UI\BreakTimer\LightningBolt.dds</exclude>
   </Excluded>
 </Configuration>
