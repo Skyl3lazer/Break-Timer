@@ -15,5 +15,8 @@
     <exclude>Source</exclude>
     <exclude>CONTEXT.md</exclude>
     <exclude>Textures\UI\BreakTimer\LightningBolt.dds</exclude>
+    <exclude>Assets.zip</exclude>
+    <exclude>1.6\Assets.zip</exclude>
+    <exclude>1.7\Assets.zip</exclude>
   </Excluded>
 </Configuration>

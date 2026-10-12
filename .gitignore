@@ -439,3 +439,7 @@ Textures/UI/BreakTimer/LightningBolt.dds
 # Design docs (internal — not pushed or shipped)
 /docs/
 /CONTEXT.md
+
+# RimWorld 1.7 asset packs baked by the in-game uploader (rebuilt per upload)
+Assets.zip
+Assets.zip.*
